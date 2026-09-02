@@ -5,14 +5,16 @@ interface GameListProps {
   games: Game[];
   onLaunch: (game: Game) => void;
   launchingId: string | null;
+  hasAnyGames?: boolean;
 }
 
-export function GameList({ games, onLaunch, launchingId }: GameListProps) {
+export function GameList({ games, onLaunch, launchingId, hasAnyGames = games.length > 0 }: GameListProps) {
   if (games.length === 0) {
     return (
       <p className="empty-state">
-        No installed games found. Steam and GOG titles installed on this
-        machine will show up here automatically.
+        {hasAnyGames
+          ? "No games match your search."
+          : "No installed games found. Steam and GOG titles installed on this machine will show up here automatically."}
       </p>
     );
   }

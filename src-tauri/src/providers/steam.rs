@@ -90,6 +90,14 @@ fn linux_steam_root() -> Option<PathBuf> {
 
 /// Every library path (default + user-added drives) via
 /// `steamapps/libraryfolders.vdf`, falling back to just the root.
+///
+/// `libraryfolders.vdf` lists the default library's own path alongside
+/// any extra ones, so dedup by canonical path — not raw `PathBuf`
+/// equality, which misses same-directory entries that differ only in
+/// case or slash style (Steam writes the vdf value verbatim from
+/// wherever the library was added, which need not match how we joined
+/// `steam_root` ourselves) and would otherwise double-scan a library,
+/// duplicating every game in it.
 fn library_folders(steam_root: &Path) -> Vec<PathBuf> {
     let default_lib = steam_root.join("steamapps");
     let vdf_path = default_lib.join("libraryfolders.vdf");
@@ -98,14 +106,24 @@ fn library_folders(steam_root: &Path) -> Vec<PathBuf> {
         return vec![default_lib];
     };
 
+    let mut seen_canonical = std::collections::HashSet::new();
+    seen_canonical.insert(canonical_or_self(&default_lib));
     let mut libraries = vec![default_lib];
+
     for value in extract_quoted_values(&contents, "path") {
         let lib = PathBuf::from(value).join("steamapps");
-        if lib.exists() && !libraries.contains(&lib) {
+        if !lib.exists() {
+            continue;
+        }
+        if seen_canonical.insert(canonical_or_self(&lib)) {
             libraries.push(lib);
         }
     }
     libraries
+}
+
+fn canonical_or_self(path: &Path) -> PathBuf {
+    fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
 
 /// Parses every `appmanifest_*.acf` in a `steamapps` directory into a `Game`.
@@ -295,5 +313,30 @@ mod tests {
 
         fs::remove_dir_all(&steam_root).unwrap();
         fs::remove_dir_all(&extra_root).unwrap();
+    }
+
+    #[test]
+    fn library_folders_does_not_duplicate_default_library_listed_in_vdf() {
+        // Steam's own libraryfolders.vdf lists the default library
+        // alongside any extra ones. A prior bug compared raw `PathBuf`s
+        // (steam_root.join("steamapps") vs. the vdf's own string form of
+        // the same directory) which could disagree in case/slash style
+        // and fail to dedup, double-scanning the library and duplicating
+        // every game in it.
+        let steam_root = temp_dir("vdf-lists-default");
+        let default_lib = steam_root.join("steamapps");
+        fs::create_dir_all(&default_lib).unwrap();
+
+        let vdf = format!(
+            "\"libraryfolders\"\n{{\n    \"0\"\n    {{\n        \"path\"        \"{}\"\n    }}\n}}\n",
+            steam_root.to_string_lossy().replace('\\', "\\\\")
+        );
+        fs::write(default_lib.join("libraryfolders.vdf"), vdf).unwrap();
+
+        let libs = library_folders(&steam_root);
+
+        assert_eq!(libs, vec![default_lib.clone()]);
+
+        fs::remove_dir_all(&steam_root).unwrap();
     }
 }
