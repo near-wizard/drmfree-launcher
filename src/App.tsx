@@ -7,6 +7,7 @@ import "./App.css";
 const PROVIDER_LABELS: Record<string, string> = {
   steam: "Steam",
   gog: "GOG",
+  epic: "Epic",
 };
 
 function App() {

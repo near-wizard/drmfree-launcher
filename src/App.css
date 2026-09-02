@@ -92,6 +92,10 @@
   background-color: #86328a;
 }
 
+.origin-epic {
+  background-color: #2a2a2a;
+}
+
 @media (prefers-color-scheme: dark) {
   .game-card {
     background-color: #0f0f0f98;

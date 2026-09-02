@@ -15,10 +15,11 @@ monetization, zero accounts.
 - [x] Packaged builds (Windows verified locally: MSI + NSIS installer
       build clean; Linux/macOS build via `.github/workflows/release.yml`
       on GitHub Actions, not yet run since there's no pushed remote yet)
-- Epic provider: deprioritized — Epic is a DRM-locked storefront,
-  off-thesis for a DRM-free-focused product (see
-  `decisions/0005-drm-free-only-catalog.md`). Revisit only if
-  aggregation breadth becomes a real user ask.
+- [x] Epic provider (detect via `.item` manifests + `com.epicgames.launcher://`
+      launch) — Epic is still a DRM-locked storefront (see
+      `decisions/0005-drm-free-only-catalog.md`), but broader library
+      aggregation directly serves the "wean off DRM" loop (decision
+      0006): can't prompt an upgrade for a DRM game you never detected.
 
 ## Stage 1 — Community & Governance (in progress)
 Publish as open source with a public handbook: this roadmap, a
@@ -46,7 +47,10 @@ detected titles that have a DRM-free equivalent in our catalog —
 preferring a direct publisher deal over an affiliate listing when
 both exist. See `decisions/0006-drm-free-upgrade-path.md`. Depends on
 a title-matching mechanism between locally-detected games and catalog
-entries, which doesn't exist yet.
+entries, which doesn't exist yet, and a DRM-status data source for
+non-GOG titles — see `decisions/0008-drm-status-data-source.md`
+(PCGamingWiki's list is CC BY-NC-SA and ruled out for this use; the
+plan is an independently-compiled open dataset, not yet started).
 
 ## Stage 2b — Direct Publisher Deals (future)
 Separate, closed-source marketplace backend once Stage 2a validates

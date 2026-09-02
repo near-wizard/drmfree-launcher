@@ -18,9 +18,14 @@ Launching hands off to the OS/provider's own mechanism:
   now — GOG has no standard install location on Linux/macOS), then
   runs the installed executable directly. GOG titles are DRM-free, so
   there's no Galaxy handoff and Galaxy doesn't need to be installed.
+- **Epic** — reads `.item` manifest files under the Epic Games
+  Launcher's `Data/Manifests` directory (Windows/macOS — Epic has no
+  native Linux client), launches via the
+  `com.epicgames.launcher://apps/<AppName>?action=launch` protocol
+  handler.
 
 Adding a new provider means implementing the `GameProvider` trait —
-nothing in the core app or UI is Steam/GOG-specific.
+nothing in the core app or UI is storefront-specific.
 
 ## Development
 

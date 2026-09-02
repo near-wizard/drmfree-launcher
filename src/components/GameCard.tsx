@@ -3,6 +3,7 @@ import type { Game } from "../types/game";
 const PROVIDER_LABELS: Record<string, string> = {
   steam: "Steam",
   gog: "GOG",
+  epic: "Epic",
 };
 
 interface GameCardProps {

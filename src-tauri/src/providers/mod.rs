@@ -1,3 +1,4 @@
+pub mod epic;
 pub mod gog;
 pub mod steam;
 
@@ -43,5 +44,9 @@ pub trait GameProvider: Send + Sync {
 
 /// All providers wired into the app. Add new providers here only.
 pub fn all_providers() -> Vec<Box<dyn GameProvider>> {
-    vec![Box::new(steam::SteamProvider), Box::new(gog::GogProvider)]
+    vec![
+        Box::new(steam::SteamProvider),
+        Box::new(gog::GogProvider),
+        Box::new(epic::EpicProvider),
+    ]
 }
