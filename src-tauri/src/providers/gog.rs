@@ -37,10 +37,28 @@ impl GameProvider for GogProvider {
     }
 }
 
+/// Resolves a GOG registry entry's `exe` value against its `path` value:
+/// absolute exe paths are used as-is, relative ones are joined onto the
+/// install path, and a missing/empty exe value falls back to the install
+/// path itself.
+fn resolve_exe_path(exe: Option<&str>, install_path: &str) -> std::path::PathBuf {
+    use std::path::Path;
+    match exe {
+        Some(exe) if !exe.is_empty() => {
+            let exe_path = Path::new(exe);
+            if exe_path.is_absolute() {
+                exe_path.to_path_buf()
+            } else {
+                Path::new(install_path).join(exe_path)
+            }
+        }
+        _ => Path::new(install_path).to_path_buf(),
+    }
+}
+
 #[cfg(target_os = "windows")]
 mod windows {
-    use super::Game;
-    use std::path::Path;
+    use super::{resolve_exe_path, Game};
     use winreg::enums::*;
     use winreg::RegKey;
 
@@ -76,17 +94,7 @@ mod windows {
                     continue;
                 };
 
-                let exe_path = match exe {
-                    Ok(exe) if !exe.is_empty() => {
-                        let exe_path = Path::new(&exe);
-                        if exe_path.is_absolute() {
-                            exe_path.to_path_buf()
-                        } else {
-                            Path::new(&path).join(exe_path)
-                        }
-                    }
-                    _ => Path::new(&path).to_path_buf(),
-                };
+                let exe_path = resolve_exe_path(exe.as_deref().ok(), &path);
 
                 games.push(Game {
                     id: game_id,
@@ -99,5 +107,34 @@ mod windows {
         }
 
         games
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_exe_path;
+
+    #[test]
+    fn relative_exe_joins_onto_install_path() {
+        let resolved = resolve_exe_path(Some("game.exe"), "C:\\Games\\MyGame");
+        assert_eq!(resolved, std::path::Path::new("C:\\Games\\MyGame\\game.exe"));
+    }
+
+    #[test]
+    fn absolute_exe_is_used_as_is() {
+        let resolved = resolve_exe_path(Some("D:\\Elsewhere\\game.exe"), "C:\\Games\\MyGame");
+        assert_eq!(resolved, std::path::Path::new("D:\\Elsewhere\\game.exe"));
+    }
+
+    #[test]
+    fn missing_exe_falls_back_to_install_path() {
+        let resolved = resolve_exe_path(None, "C:\\Games\\MyGame");
+        assert_eq!(resolved, std::path::Path::new("C:\\Games\\MyGame"));
+    }
+
+    #[test]
+    fn empty_exe_falls_back_to_install_path() {
+        let resolved = resolve_exe_path(Some(""), "C:\\Games\\MyGame");
+        assert_eq!(resolved, std::path::Path::new("C:\\Games\\MyGame"));
     }
 }

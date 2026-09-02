@@ -167,3 +167,133 @@ fn extract_quoted_values(contents: &str, key: &str) -> Vec<String> {
 fn open_uri(uri: &str) -> Result<(), String> {
     open::that(uri).map_err(|e| format!("failed to open {uri}: {e}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "drmfree-launcher-test-{name}-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn extract_quoted_values_reads_matching_keys_only() {
+        let contents = r#"
+            "AppState"
+            {
+                "appid"        "440"
+                "universe"        "1"
+                "name"        "Team Fortress 2"
+            }
+        "#;
+        assert_eq!(extract_quoted_values(contents, "appid"), vec!["440"]);
+        assert_eq!(
+            extract_quoted_values(contents, "name"),
+            vec!["Team Fortress 2"]
+        );
+        // A key that's a superstring of another must not false-match.
+        assert!(extract_quoted_values(contents, "app").is_empty());
+    }
+
+    #[test]
+    fn extract_quoted_values_collects_multiple_matches() {
+        let contents = r#"
+            "path"        "C:\SteamLibrary"
+            "path"        "D:\SteamLibrary"
+        "#;
+        assert_eq!(
+            extract_quoted_values(contents, "path"),
+            vec!["C:\\SteamLibrary", "D:\\SteamLibrary"]
+        );
+    }
+
+    #[test]
+    fn games_in_library_parses_appmanifest_files() {
+        let steamapps = temp_dir("games-in-library");
+        fs::write(
+            steamapps.join("appmanifest_440.acf"),
+            r#"
+            "AppState"
+            {
+                "appid"        "440"
+                "name"        "Team Fortress 2"
+                "installdir"        "Team Fortress 2"
+            }
+            "#,
+        )
+        .unwrap();
+        // Non-manifest files must be ignored.
+        fs::write(steamapps.join("libraryfolders.vdf"), "\"path\" \"C:\\\\Elsewhere\"").unwrap();
+
+        let games = games_in_library(&steamapps);
+
+        assert_eq!(games.len(), 1);
+        assert_eq!(games[0].id, "440");
+        assert_eq!(games[0].name, "Team Fortress 2");
+        assert_eq!(games[0].provider, "steam");
+        assert_eq!(
+            games[0].install_dir,
+            Some(
+                steamapps
+                    .join("common")
+                    .join("Team Fortress 2")
+                    .to_string_lossy()
+                    .to_string()
+            )
+        );
+
+        fs::remove_dir_all(&steamapps).unwrap();
+    }
+
+    #[test]
+    fn games_in_library_skips_manifests_missing_required_fields() {
+        let steamapps = temp_dir("missing-fields");
+        fs::write(
+            steamapps.join("appmanifest_1.acf"),
+            "\"AppState\"\n{\n    \"appid\"    \"1\"\n}\n", // no "name"
+        )
+        .unwrap();
+
+        assert!(games_in_library(&steamapps).is_empty());
+
+        fs::remove_dir_all(&steamapps).unwrap();
+    }
+
+    #[test]
+    fn library_folders_falls_back_to_root_when_vdf_missing() {
+        let steam_root = temp_dir("no-vdf");
+        let libs = library_folders(&steam_root);
+        assert_eq!(libs, vec![steam_root.join("steamapps")]);
+        fs::remove_dir_all(&steam_root).unwrap();
+    }
+
+    #[test]
+    fn library_folders_includes_existing_paths_from_vdf() {
+        let steam_root = temp_dir("with-vdf");
+        let default_lib = steam_root.join("steamapps");
+        fs::create_dir_all(&default_lib).unwrap();
+
+        let extra_root = temp_dir("extra-library");
+        fs::create_dir_all(extra_root.join("steamapps")).unwrap();
+
+        let vdf = format!(
+            "\"libraryfolders\"\n{{\n    \"1\"\n    {{\n        \"path\"        \"{}\"\n    }}\n}}\n",
+            extra_root.to_string_lossy().replace('\\', "\\\\")
+        );
+        fs::write(default_lib.join("libraryfolders.vdf"), vdf).unwrap();
+
+        let libs = library_folders(&steam_root);
+
+        assert_eq!(libs, vec![default_lib.clone(), extra_root.join("steamapps")]);
+
+        fs::remove_dir_all(&steam_root).unwrap();
+        fs::remove_dir_all(&extra_root).unwrap();
+    }
+}
