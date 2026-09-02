@@ -7,6 +7,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::list_games,
+            commands::list_providers,
             commands::launch_game
         ])
         .run(tauri::generate_context!())

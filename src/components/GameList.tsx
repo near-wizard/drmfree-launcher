@@ -5,10 +5,17 @@ interface GameListProps {
   games: Game[];
   onLaunch: (game: Game) => void;
   launchingId: string | null;
+  providerLabels: Record<string, string>;
   hasAnyGames?: boolean;
 }
 
-export function GameList({ games, onLaunch, launchingId, hasAnyGames = games.length > 0 }: GameListProps) {
+export function GameList({
+  games,
+  onLaunch,
+  launchingId,
+  providerLabels,
+  hasAnyGames = games.length > 0,
+}: GameListProps) {
   if (games.length === 0) {
     return (
       <p className="empty-state">
@@ -27,6 +34,7 @@ export function GameList({ games, onLaunch, launchingId, hasAnyGames = games.len
           game={game}
           onLaunch={onLaunch}
           launching={launchingId === game.id}
+          providerLabels={providerLabels}
         />
       ))}
     </div>

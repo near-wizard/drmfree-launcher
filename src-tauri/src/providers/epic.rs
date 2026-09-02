@@ -67,6 +67,14 @@ struct EpicManifest {
     display_name: String,
     #[serde(rename = "InstallLocation")]
     install_location: Option<String>,
+    /// A manifest can exist for DLC/content packs bundled alongside a
+    /// game (e.g. "Fortnite Save the World Content") that Epic itself
+    /// does not consider a launchable app — `bIsApplication: false`,
+    /// no `LaunchExecutable`. Launching one of these via the protocol
+    /// handler does nothing, so they must be filtered out rather than
+    /// listed as if they were games.
+    #[serde(rename = "bIsApplication")]
+    is_application: bool,
 }
 
 fn games_from_manifests(manifests_dir: &std::path::Path) -> Vec<Game> {
@@ -89,6 +97,9 @@ fn games_from_manifests(manifests_dir: &std::path::Path) -> Vec<Game> {
 
 fn manifest_to_game(contents: &str) -> Option<Game> {
     let manifest: EpicManifest = serde_json::from_str(contents).ok()?;
+    if !manifest.is_application {
+        return None;
+    }
     Some(Game {
         id: manifest.app_name,
         name: manifest.display_name,
@@ -119,6 +130,7 @@ mod tests {
             "AppName": "abc123",
             "DisplayName": "Fortnite",
             "InstallLocation": "C:\\Games\\Fortnite",
+            "bIsApplication": true,
             "InstallSize": 12345
         }"#;
         let game = manifest_to_game(contents).unwrap();
@@ -135,7 +147,22 @@ mod tests {
 
     #[test]
     fn manifest_to_game_rejects_missing_required_field() {
-        let contents = r#"{ "AppName": "abc123" }"#; // no DisplayName
+        let contents = r#"{ "AppName": "abc123", "bIsApplication": true }"#; // no DisplayName
+        assert!(manifest_to_game(contents).is_none());
+    }
+
+    #[test]
+    fn manifest_to_game_rejects_non_application_entries() {
+        // Real-world case: Epic writes a manifest for bundled DLC/content
+        // packs (e.g. "Fortnite Save the World Content") alongside the
+        // actual game. bIsApplication: false means Epic itself won't
+        // launch it — it must not be listed as a playable game.
+        let contents = r#"{
+            "AppName": "aa31f9e94e844b299ca757d1d0b97a09",
+            "DisplayName": "Fortnite Save the World Content",
+            "InstallLocation": "C:\\Program Files\\Epic Games\\Fortnite",
+            "bIsApplication": false
+        }"#;
         assert!(manifest_to_game(contents).is_none());
     }
 
@@ -144,7 +171,7 @@ mod tests {
         let dir = temp_dir("filtering");
         fs::write(
             dir.join("abc123.item"),
-            r#"{ "AppName": "abc123", "DisplayName": "Game A" }"#,
+            r#"{ "AppName": "abc123", "DisplayName": "Game A", "bIsApplication": true }"#,
         )
         .unwrap();
         fs::write(dir.join("readme.txt"), "not a manifest").unwrap();

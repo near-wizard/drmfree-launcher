@@ -2,16 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
 import type { Game } from "./types/game";
+import type { ProviderInfo } from "./types/provider";
 import "./App.css";
-
-const PROVIDER_LABELS: Record<string, string> = {
-  steam: "Steam",
-  gog: "GOG",
-  epic: "Epic",
-};
 
 function App() {
   const [games, setGames] = useState<Game[]>([]);
+  const [providerLabels, setProviderLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +28,9 @@ function App() {
   }
 
   useEffect(() => {
+    invoke<ProviderInfo[]>("list_providers").then((providers) => {
+      setProviderLabels(Object.fromEntries(providers.map((p) => [p.id, p.display_name])));
+    });
     refresh();
   }, []);
 
@@ -86,7 +85,7 @@ function App() {
             <option value="all">All sources ({games.length})</option>
             {availableProviders.map((p) => (
               <option key={p} value={p}>
-                {(PROVIDER_LABELS[p] ?? p) +
+                {(providerLabels[p] ?? p) +
                   ` (${games.filter((g) => g.provider === p).length})`}
               </option>
             ))}
@@ -99,6 +98,7 @@ function App() {
         games={visibleGames}
         onLaunch={launch}
         launchingId={launchingId}
+        providerLabels={providerLabels}
         hasAnyGames={games.length > 0}
       />
     </main>
