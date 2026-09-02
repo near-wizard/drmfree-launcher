@@ -31,4 +31,4 @@ npm run tauri dev
 
 ## License
 
-Not yet finalized — see `docs/decisions/`.
+MIT — see [`LICENSE`](LICENSE) and [`docs/decisions/0004-license.md`](docs/decisions/0004-license.md) for the reasoning.
