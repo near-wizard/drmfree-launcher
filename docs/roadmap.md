@@ -20,9 +20,17 @@ monetization, zero accounts.
   `decisions/0005-drm-free-only-catalog.md`). Revisit only if
   aggregation breadth becomes a real user ask.
 
-## Stage 1 — Community & Governance (next)
+## Stage 1 — Community & Governance (in progress)
 Publish as open source with a public handbook: this roadmap, a
 decision log, and contribution guidelines.
+
+- [x] Repo public on GitHub (near-wizard/drmfree-launcher)
+- [x] License decided and applied — MIT (`decisions/0004-license.md`)
+- [x] Project name finalized — DRM-Free Launcher (`decisions/0007`)
+- [x] Roadmap + decision log (this directory)
+- [x] Contribution guidelines — open to external PRs
+      (`docs/CONTRIBUTING.md`)
+- [x] Code of conduct (`docs/CODE_OF_CONDUCT.md`)
 
 ## Stage 2a — DRM-Free Affiliate Storefront (planned, not started)
 A curated discovery/link-out layer on top of existing **DRM-free**

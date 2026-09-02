@@ -29,6 +29,14 @@ npm install
 npm run tauri dev
 ```
 
+## Contributing
+
+Open to contributions — see [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)
+for dev setup, how to add a new storefront provider, and PR
+expectations. Also see the [`docs/CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md)
+and [`docs/roadmap.md`](docs/roadmap.md) / [`docs/decisions/`](docs/decisions/)
+for where the project's headed and why past calls were made.
+
 ## License
 
 MIT — see [`LICENSE`](LICENSE) and [`docs/decisions/0004-license.md`](docs/decisions/0004-license.md) for the reasoning.
