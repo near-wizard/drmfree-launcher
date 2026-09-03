@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { GameCard } from "./GameCard";
 import type { Game } from "../types/game";
 
@@ -67,5 +68,45 @@ describe("GameCard DRM badge with community consensus", () => {
     );
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
     expect(screen.queryByText("Report")).not.toBeInTheDocument();
+  });
+});
+
+describe("GameCard open-install-folder action", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+  });
+
+  it("does not render the folder button when install_dir is unknown", async () => {
+    render(
+      <GameCard
+        game={makeGame({ install_dir: null })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Open install folder" })).not.toBeInTheDocument();
+  });
+
+  it("asks the backend to open the install folder for this exact game when clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ id: "248820", provider: "steam", install_dir: "C:\\Games\\Risk of Rain" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    const button = await screen.findByRole("button", { name: "Open install folder" });
+    invokeMock.mockClear();
+    await user.click(button);
+    expect(invokeMock).toHaveBeenCalledWith("open_install_folder", {
+      provider: "steam",
+      id: "248820",
+    });
   });
 });

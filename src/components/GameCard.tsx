@@ -268,6 +268,21 @@ export function GameCard({
         {game.provider !== "gog" && (
           <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
         )}
+        {game.install_dir && (
+          <button
+            className="open-folder-button"
+            title="Open install folder"
+            aria-label="Open install folder"
+            onClick={() => {
+              track("open_install_folder_clicked", { provider: game.provider });
+              invoke("open_install_folder", { provider: game.provider, id: game.id }).catch((e) =>
+                console.error("failed to open install folder:", e),
+              );
+            }}
+          >
+            📂
+          </button>
+        )}
         <button className="play-button" disabled={launching} onClick={() => onLaunch(game)}>
           {!launching && <PawIcon />}
           {launching ? "Launching..." : "Play"}

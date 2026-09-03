@@ -49,3 +49,30 @@ pub fn launch_game(provider: String, id: String) -> Result<(), String> {
 
     provider.launch(&game)
 }
+
+/// Opens a game's install directory in the OS file manager (Explorer,
+/// Finder, whatever the desktop's default handler for a folder is).
+/// Every provider already collects `install_dir` while detecting
+/// games (it was going unused until now) — this is the same
+/// re-detect-don't-trust-the-payload pattern as `launch_game`, so a
+/// stale/tampered client-supplied path can't be opened.
+#[tauri::command]
+pub fn open_install_folder(provider: String, id: String) -> Result<(), String> {
+    let providers = all_providers();
+    let provider = providers
+        .iter()
+        .find(|p| p.id() == provider)
+        .ok_or_else(|| format!("unknown provider: {provider}"))?;
+
+    let game = provider
+        .detect_installed_games()
+        .into_iter()
+        .find(|g| g.id == id)
+        .ok_or_else(|| format!("game {id} not found for provider {}", provider.id()))?;
+
+    let install_dir = game
+        .install_dir
+        .ok_or_else(|| format!("no install directory known for {}", game.name))?;
+
+    open::that(&install_dir).map_err(|e| format!("failed to open {install_dir}: {e}"))
+}
