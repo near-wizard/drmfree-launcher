@@ -36,10 +36,27 @@ function drmTooltip(drm: DrmRecord): string {
   return `Source: ${drm.source} (${DETERMINATION_LABELS[drm.method]})${verified}`;
 }
 
-// Steam app IDs map directly to a public CDN header image; no API key needed.
+// Most Steam app IDs map directly to this public CDN header image with
+// no network round trip beyond the image itself — no API key needed,
+// so this is tried first. It's a guess, not a guarantee: newer titles
+// are served from a per-title hashed path this can't predict (real
+// examples: "Mage Arena", "MECCHA CHAMELEON"), so the <img> tag's
+// onError falls back to fetchSteamCoverArtFallback below rather than
+// giving up straight to the placeholder.
 function steamCoverArtUrl(game: Game): string | null {
   if (game.provider !== "steam") return null;
   return `https://cdn.akamai.steamstatic.com/steam/apps/${game.id}/header.jpg`;
+}
+
+// Cached across cards/re-renders like gogCoverArtCache below — only
+// hit for the subset of Steam titles the fast guess above misses.
+const steamCoverArtFallbackCache = new Map<string, string | null>();
+
+async function fetchSteamCoverArtFallback(id: string): Promise<string | null> {
+  if (steamCoverArtFallbackCache.has(id)) return steamCoverArtFallbackCache.get(id) ?? null;
+  const url = await invoke<string | null>("get_steam_cover_art", { id }).catch(() => null);
+  steamCoverArtFallbackCache.set(id, url);
+  return url;
 }
 
 // GOG has no equivalent deterministic-URL CDN, but the registry ID we
@@ -169,6 +186,8 @@ export function GameCard({
 }: GameCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [gogCoverUrl, setGogCoverUrl] = useState<string | null>(null);
+  const [steamFallbackUrl, setSteamFallbackUrl] = useState<string | null>(null);
+  const [steamFallbackTried, setSteamFallbackTried] = useState(false);
   const [consensus, setConsensus] = useState<CommunityConsensus | null>(null);
   const [consensusLoaded, setConsensusLoaded] = useState(false);
 
@@ -199,8 +218,24 @@ export function GameCard({
     };
   }, [game.provider, game.id]);
 
-  const coverUrl = steamCoverArtUrl(game) ?? gogCoverUrl;
+  const coverUrl = steamFallbackUrl ?? steamCoverArtUrl(game) ?? gogCoverUrl;
   const effectiveDrm = applyCommunityConsensus(game.drm, consensus);
+
+  // The fast-guess Steam URL failing isn't necessarily "no image" —
+  // try the real lookup once before falling back to the placeholder.
+  // GOG/no-cover cases have nothing further to try, so they go
+  // straight to imageFailed as before.
+  function onCoverError() {
+    if (game.provider === "steam" && !steamFallbackTried) {
+      setSteamFallbackTried(true);
+      fetchSteamCoverArtFallback(game.id).then((url) => {
+        if (url) setSteamFallbackUrl(url);
+        else setImageFailed(true);
+      });
+      return;
+    }
+    setImageFailed(true);
+  }
 
   return (
     <div className="game-card">
@@ -211,7 +246,7 @@ export function GameCard({
             src={coverUrl}
             alt=""
             loading="lazy"
-            onError={() => setImageFailed(true)}
+            onError={onCoverError}
           />
         ) : (
           <span className="game-thumb game-thumb-placeholder" aria-hidden="true">

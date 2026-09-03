@@ -1,4 +1,6 @@
 use super::{DrmRecord, Game, GameProvider};
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -30,6 +32,58 @@ impl GameProvider for SteamProvider {
         let uri = format!("steam://rungameid/{}", game.id);
         open_uri(&uri)
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct SteamAppDetailsData {
+    header_image: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SteamAppDetailsEntry {
+    success: bool,
+    data: Option<SteamAppDetailsData>,
+}
+
+/// Fallback cover-art lookup for the (increasing) share of Steam titles
+/// whose header image isn't at the old predictable
+/// `cdn.akamai.steamstatic.com/steam/apps/<id>/header.jpg` path —
+/// GameCard's <img> tries that URL directly first since it needs no
+/// network round trip beyond the image itself, and only calls this when
+/// that 404s. Newer titles are served from a per-title hashed path
+/// under `shared.akamai.steamstatic.com/store_item_assets/...` that
+/// can't be guessed, only read back from Steam's own public appdetails
+/// API — confirmed live via two real user-reported titles ("Mage
+/// Arena", "MECCHA CHAMELEON") that 404 on every old-style CDN path
+/// guess but resolve correctly through this endpoint.
+#[tauri::command]
+pub async fn get_steam_cover_art(id: String) -> Result<Option<String>, String> {
+    let url = format!("https://store.steampowered.com/api/appdetails?appids={id}&filters=basic");
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("failed to reach Steam appdetails API: {e}"))?;
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let parsed: HashMap<String, SteamAppDetailsEntry> = response
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse Steam appdetails response: {e}"))?;
+
+    Ok(extract_header_image(&parsed, &id))
+}
+
+fn extract_header_image(
+    parsed: &HashMap<String, SteamAppDetailsEntry>,
+    id: &str,
+) -> Option<String> {
+    parsed
+        .get(id)
+        .filter(|entry| entry.success)
+        .and_then(|entry| entry.data.as_ref())
+        .and_then(|data| data.header_image.clone())
 }
 
 /// Locates the Steam client's install root, per OS. Returns `None` when
@@ -200,6 +254,31 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn extract_header_image_returns_url_on_success() {
+        let json = r#"{"3716600":{"success":true,"data":{"header_image":"https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3716600/e09e178465c67642c1214736e29d64846d966e52/header.jpg?t=1754585254"}}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            extract_header_image(&parsed, "3716600").as_deref(),
+            Some("https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/3716600/e09e178465c67642c1214736e29d64846d966e52/header.jpg?t=1754585254")
+        );
+    }
+
+    #[test]
+    fn extract_header_image_is_none_when_success_is_false() {
+        // Real shape for an unknown/delisted appid — no "data" key at
+        // all, not an empty object.
+        let json = r#"{"99999999999":{"success":false}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(extract_header_image(&parsed, "99999999999"), None);
+    }
+
+    #[test]
+    fn extract_header_image_is_none_when_id_not_in_response() {
+        let parsed: HashMap<String, SteamAppDetailsEntry> = HashMap::new();
+        assert_eq!(extract_header_image(&parsed, "123"), None);
     }
 
     #[test]
