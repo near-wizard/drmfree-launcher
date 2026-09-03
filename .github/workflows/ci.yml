@@ -40,6 +40,9 @@ jobs:
       - name: Typecheck + build frontend
         run: npm run build
 
+      - name: Test frontend
+        run: npm run test
+
       - name: Check Rust
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
