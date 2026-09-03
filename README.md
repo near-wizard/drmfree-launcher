@@ -1,6 +1,6 @@
 # DRM-Free Launcher
 
-**One library for every launcher you already use — and a clear path off DRM when there's a DRM-free version waiting.**
+**You don't own a Steam library. You own a permission slip Valve can revoke. This app shows you, game by game, when you could own the thing instead.**
 
 [![CI](https://github.com/near-wizard/drmfree-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/near-wizard/drmfree-launcher/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/near-wizard/drmfree-launcher?include_prereleases)](https://github.com/near-wizard/drmfree-launcher/releases)
@@ -14,6 +14,9 @@ any game in your library, it checks GOG's DRM-free catalog for an
 equivalent and gives you a one-click path to buy it there instead —
 so going DRM-free is a choice you can make one game at a time, not an
 all-or-nothing migration.
+
+Read the [manifesto](MANIFESTO.md) for the argument this app is
+actually making.
 
 <p align="center">
   <img src="docs/screenshots/store.png" alt="DRM-Free Launcher — Store tab browsing GOG's DRM-free catalog" width="720">
