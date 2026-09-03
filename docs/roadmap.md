@@ -33,13 +33,24 @@ decision log, and contribution guidelines.
       (`docs/CONTRIBUTING.md`)
 - [x] Code of conduct (`docs/CODE_OF_CONDUCT.md`)
 
-## Stage 2a — DRM-Free Affiliate Storefront (planned, not started)
+## Stage 2a — DRM-Free Affiliate Storefront (in progress)
 A curated discovery/link-out layer on top of existing **DRM-free**
 storefronts only (starting with GOG's affiliate program) — real
 revenue and a demand signal, before any direct publisher deals. No
 fulfillment role, no in-app checkout. Storefront/title eligibility is
 gated on DRM-free status, not just "pays an affiliate commission" —
 see `decisions/0005-drm-free-only-catalog.md`.
+
+- [x] In-app Store tab browsing GOG's public catalog (search,
+      trending, pagination), with a clearly labeled "Buy on GOG"
+      link-out — no payment/fulfillment in the app.
+- [x] itch.io evaluated as the next storefront — not added: no real
+      commission-based affiliate program exists yet, and there's no
+      verified (non-self-reported) per-title DRM-free signal in its
+      API. See `decisions/0010-itchio-evaluation.md`. Revisit if
+      either changes.
+- [ ] "Buy DRM-free version" upgrade prompt on detected DRM-locked
+      titles (the core loop below) — not started.
 
 Core loop this unlocks: keep launching your existing (often
 DRM-locked) library, but surface a "Buy DRM-free version" prompt on
