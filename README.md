@@ -1,9 +1,16 @@
 # DRM-Free Launcher
 
-An open-core, DRM-free-friendly game launcher. Stage 0 (current):
-a unified library view that detects games installed via Steam and GOG
-on your machine and launches them — no accounts, no marketplace, no
-ownership APIs.
+An open-core, DRM-free-friendly game launcher.
+
+- **Library** (Stage 0) — a unified view that detects games installed
+  via Steam, GOG, and Epic on your machine and launches them. No
+  accounts, no ownership APIs — see "How detection works" below.
+- **Store** (Stage 2a, in progress) — a read-only, link-out-only
+  browser for GOG's DRM-free catalog. No accounts, no payment or
+  fulfillment in the app; purchases happen on gog.com. See
+  [`docs/decisions/0001-open-core-split.md`](docs/decisions/0001-open-core-split.md)
+  and [`docs/decisions/0005-drm-free-only-catalog.md`](docs/decisions/0005-drm-free-only-catalog.md)
+  for why the Store is scoped this way.
 
 ## How detection works
 
@@ -32,6 +39,14 @@ nothing in the core app or UI is storefront-specific.
 ```sh
 npm install
 npm run tauri dev
+```
+
+```sh
+npm run lint    # ESLint (frontend)
+npm run build   # tsc + vite build
+cargo check --manifest-path src-tauri/Cargo.toml
+cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
 ## Contributing
