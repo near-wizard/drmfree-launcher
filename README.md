@@ -59,10 +59,15 @@ Launching hands off to the OS/provider's own mechanism:
 
 - **Steam** — reads `appmanifest_*.acf` files in each Steam library,
   launches via the `steam://rungameid/<appid>` protocol handler.
-- **GOG** — reads the `GOG.com\Games` registry keys (Windows only for
-  now — GOG has no standard install location on Linux/macOS), then
-  runs the installed executable directly. GOG titles are DRM-free, so
-  there's no Galaxy handoff and Galaxy doesn't need to be installed.
+- **GOG** — Windows: reads the `GOG.com\Games` registry keys. Linux:
+  GOG ships no native client there, so this reads
+  [Heroic Games Launcher](https://heroicgameslauncher.com/)'s own data
+  instead (`~/.config/heroic/gog_store/`) — best-effort, since that
+  schema isn't officially documented (see the code comment in
+  `providers/gog.rs` for specifics). macOS: not yet supported. Either
+  way, runs the installed executable directly — GOG titles are
+  DRM-free, so there's no Galaxy handoff and Galaxy doesn't need to be
+  installed.
 - **Epic** — reads `.item` manifest files under the Epic Games
   Launcher's `Data/Manifests` directory (Windows/macOS — Epic has no
   native Linux client), launches via the

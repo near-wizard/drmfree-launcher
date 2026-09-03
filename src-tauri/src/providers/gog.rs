@@ -1,13 +1,16 @@
 use super::{Game, GameProvider};
 use serde::Deserialize;
 // DrmRecord/DrmDeterminationMethod are only actually used by the
-// Windows registry scan below — GOG detection doesn't exist yet on
-// other platforms (see `detect_installed_games`), so importing these
-// unconditionally makes them (and everything downstream of them:
-// resolve_exe_path, GOG_POLICY_VERIFIED_ON, even DrmStatus::DrmFree
-// and DrmDeterminationMethod::GogImport crate-wide) dead code under
-// `-D warnings` on non-Windows targets.
-#[cfg(target_os = "windows")]
+// Windows registry scan and Linux Heroic scan below — GOG detection
+// doesn't exist on macOS yet (see `detect_installed_games`), so
+// importing these unconditionally makes them (and everything
+// downstream of them: resolve_exe_path, GOG_POLICY_VERIFIED_ON, even
+// DrmStatus::DrmFree and DrmDeterminationMethod::GogImport
+// crate-wide) dead code under `-D warnings` on macOS specifically.
+// `test` is included so `mod linux`'s parsing logic can be unit
+// tested on any platform (it's pure JSON/string handling, no actual
+// Linux-only syscalls) rather than shipping it fully unverified.
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
 use super::{DrmDeterminationMethod, DrmRecord};
 
 /// Last date a maintainer confirmed GOG's storefront-wide DRM-free
@@ -15,7 +18,7 @@ use super::{DrmDeterminationMethod, DrmRecord};
 /// happens on every launch and "verified today" would be meaningless
 /// noise rather than an actual audit trail. Update by hand if this
 /// policy is ever reconfirmed or changes.
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
 const GOG_POLICY_VERIFIED_ON: &str = "2026-09-02";
 
 pub struct GogProvider;
@@ -35,11 +38,18 @@ impl GameProvider for GogProvider {
             windows::detect()
         }
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "linux")]
         {
-            // GOG's offline installer has no standard install location or
-            // registration mechanism on Linux/macOS (Galaxy itself doesn't
-            // run there), so there's nothing reliable to local-scan yet.
+            linux::detect()
+        }
+
+        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+        {
+            // GOG ships no native macOS client and has no standard
+            // install/registration location there — nothing reliable to
+            // local-scan yet. (Heroic does support macOS too, so this
+            // could follow the same approach as the Linux path below
+            // once its macOS config directory convention is confirmed.)
             Vec::new()
         }
     }
@@ -185,6 +195,325 @@ mod windows {
         }
 
         games
+    }
+}
+
+/// GOG ships no native Linux client, so there's no first-party install
+/// location to scan (unlike Windows' registry). Heroic Games Launcher is
+/// the closest thing to a standard location for GOG installs on Linux,
+/// so detection here reads Heroic's own data instead.
+///
+/// **Best-effort, not verified against a real installed.json** — no
+/// Linux+Heroic install was available to test against. Field names below
+/// (`appName`, `install_path`, `executable`, `platform`) are taken from
+/// reading Heroic's own source directly (`src/backend/storeManagers/gog/
+/// library.ts`, `InstalledInfo` type, as of 2026-09), not official docs —
+/// this project has no control over that schema and it isn't guaranteed
+/// stable. Parsing is deliberately permissive throughout: any entry, or
+/// the whole file, that doesn't match is skipped rather than erroring, so
+/// a wrong guess here means "no GOG games detected on Linux" (identical
+/// to the previous behavior), never a crash. Revisit with a real sample
+/// file if this doesn't actually detect anything in practice.
+///
+/// Compiled under `cfg(test)` on any platform too, so the parsing/
+/// mapping logic (pure JSON + string handling, no actual Linux-only
+/// syscalls) is unit tested rather than shipped fully unverified —
+/// only the real, non-test build restricts this to target_os="linux".
+#[cfg(any(target_os = "linux", test))]
+mod linux {
+    use super::{DrmDeterminationMethod, DrmRecord, Game};
+    use serde::Deserialize;
+    use std::collections::HashMap;
+    use std::path::{Path, PathBuf};
+
+    #[derive(Debug, Deserialize)]
+    struct InstalledInfo {
+        #[serde(rename = "appName")]
+        app_name: String,
+        install_path: String,
+        executable: Option<String>,
+        platform: Option<String>,
+    }
+
+    // installed.json's top-level shape (array vs. an object keyed by
+    // appName) isn't confirmed — accept either rather than guess wrong
+    // and detect nothing.
+    #[derive(Debug, Deserialize)]
+    #[serde(untagged)]
+    enum InstalledGamesFile {
+        List(Vec<InstalledInfo>),
+        Map(HashMap<String, InstalledInfo>),
+    }
+
+    // library.json's id field naming convention isn't confirmed either
+    // (installed.json uses camelCase "appName", but other Heroic types
+    // seen while researching this used snake_case "app_name") — accept
+    // both.
+    #[derive(Debug, Deserialize)]
+    struct LibraryEntry {
+        app_name: Option<String>,
+        #[serde(rename = "appName")]
+        app_name_camel: Option<String>,
+        title: Option<String>,
+    }
+
+    // Not called by any test (mocking dirs::home_dir() isn't worth the
+    // complexity — the tests exercise to_game/read_titles/parsing
+    // directly instead) — genuinely dead in a cfg(test) build on a
+    // non-Linux host, where this module compiles for testing but the
+    // real target_os="linux" production caller in
+    // detect_installed_games doesn't exist.
+    #[allow(dead_code)]
+    fn heroic_config_dirs() -> Vec<PathBuf> {
+        let Some(home) = dirs::home_dir() else {
+            return Vec::new();
+        };
+        [
+            ".config/heroic",
+            ".var/app/com.heroicgameslauncher.hgl/config/heroic",
+        ]
+        .into_iter()
+        .map(|p| home.join(p))
+        .collect()
+    }
+
+    #[allow(dead_code)]
+    pub fn detect() -> Vec<Game> {
+        for config_dir in heroic_config_dirs() {
+            let installed_path = config_dir.join("gog_store").join("installed.json");
+            let Ok(contents) = std::fs::read_to_string(&installed_path) else {
+                continue;
+            };
+            let Ok(parsed) = serde_json::from_str::<InstalledGamesFile>(&contents) else {
+                continue;
+            };
+
+            let entries = match parsed {
+                InstalledGamesFile::List(v) => v,
+                InstalledGamesFile::Map(m) => m.into_values().collect(),
+            };
+            let titles = read_titles(&config_dir);
+
+            return entries
+                .into_iter()
+                .filter(|e| e.platform.as_deref() == Some("linux"))
+                .map(|e| to_game(e, &titles))
+                .collect();
+        }
+        Vec::new()
+    }
+
+    fn to_game(entry: InstalledInfo, titles: &HashMap<String, String>) -> Game {
+        let name = titles.get(&entry.app_name).cloned().unwrap_or_else(|| entry.app_name.clone());
+        // Deliberately not std::path::Path here: these are always POSIX
+        // paths (this only ever runs against a real Linux install), but
+        // Path's separator follows the *compiling* target, not the
+        // string's own shape — using it would silently join with `\`
+        // when this module is compiled for testing on Windows, and a
+        // test asserting the (correct, `/`-joined) real Linux behavior
+        // caught exactly that before this comment existed.
+        let exe_path = entry.executable.map(|exe| {
+            if exe.starts_with('/') {
+                exe
+            } else {
+                format!("{}/{}", entry.install_path.trim_end_matches('/'), exe)
+            }
+        });
+
+        Game {
+            id: entry.app_name,
+            name,
+            provider: "gog",
+            install_dir: Some(entry.install_path),
+            exe_path,
+            // Same policy-level assertion as the Windows scan above —
+            // GOG's whole storefront is DRM-free regardless of which OS
+            // detected the install.
+            drm: DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport, super::GOG_POLICY_VERIFIED_ON),
+        }
+    }
+
+    fn read_titles(config_dir: &Path) -> HashMap<String, String> {
+        let library_path = config_dir.join("gog_store").join("library.json");
+        let Ok(contents) = std::fs::read_to_string(&library_path) else {
+            return HashMap::new();
+        };
+        let Ok(entries) = serde_json::from_str::<Vec<LibraryEntry>>(&contents) else {
+            return HashMap::new();
+        };
+        entries
+            .into_iter()
+            .filter_map(|e| {
+                let id = e.app_name.or(e.app_name_camel)?;
+                let title = e.title?;
+                Some((id, title))
+            })
+            .collect()
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::fs;
+
+        fn temp_dir(name: &str) -> PathBuf {
+            let dir = std::env::temp_dir().join(format!(
+                "drmfree-launcher-test-gog-linux-{name}-{}",
+                std::process::id()
+            ));
+            let _ = fs::remove_dir_all(&dir);
+            fs::create_dir_all(&dir).unwrap();
+            dir
+        }
+
+        #[test]
+        fn installed_games_file_parses_array_shape() {
+            let json = r#"[
+                { "appName": "123", "install_path": "/home/u/Games/game", "executable": "game", "platform": "linux" }
+            ]"#;
+            let parsed: InstalledGamesFile = serde_json::from_str(json).unwrap();
+            let InstalledGamesFile::List(entries) = parsed else {
+                panic!("expected List variant");
+            };
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].app_name, "123");
+        }
+
+        #[test]
+        fn installed_games_file_parses_map_shape() {
+            let json = r#"{
+                "123": { "appName": "123", "install_path": "/home/u/Games/game", "executable": "game", "platform": "linux" }
+            }"#;
+            let parsed: InstalledGamesFile = serde_json::from_str(json).unwrap();
+            let InstalledGamesFile::Map(entries) = parsed else {
+                panic!("expected Map variant");
+            };
+            assert_eq!(entries.len(), 1);
+            assert!(entries.contains_key("123"));
+        }
+
+        #[test]
+        fn to_game_uses_title_from_library_when_available() {
+            let entry = InstalledInfo {
+                app_name: "123".to_string(),
+                install_path: "/home/u/Games/game".to_string(),
+                executable: Some("game".to_string()),
+                platform: Some("linux".to_string()),
+            };
+            let mut titles = HashMap::new();
+            titles.insert("123".to_string(), "Risk of Rain".to_string());
+
+            let game = to_game(entry, &titles);
+            assert_eq!(game.name, "Risk of Rain");
+            assert_eq!(game.id, "123");
+            assert_eq!(game.provider, "gog");
+        }
+
+        #[test]
+        fn to_game_falls_back_to_app_name_when_title_missing() {
+            let entry = InstalledInfo {
+                app_name: "123".to_string(),
+                install_path: "/home/u/Games/game".to_string(),
+                executable: None,
+                platform: Some("linux".to_string()),
+            };
+            let game = to_game(entry, &HashMap::new());
+            assert_eq!(game.name, "123");
+        }
+
+        #[test]
+        fn to_game_joins_relative_executable_onto_install_path() {
+            let entry = InstalledInfo {
+                app_name: "123".to_string(),
+                install_path: "/home/u/Games/game".to_string(),
+                executable: Some("game.sh".to_string()),
+                platform: Some("linux".to_string()),
+            };
+            let game = to_game(entry, &HashMap::new());
+            assert_eq!(game.exe_path.as_deref(), Some("/home/u/Games/game/game.sh"));
+        }
+
+        #[test]
+        fn to_game_leaves_absolute_executable_unchanged() {
+            let entry = InstalledInfo {
+                app_name: "123".to_string(),
+                install_path: "/home/u/Games/game".to_string(),
+                executable: Some("/opt/elsewhere/game.sh".to_string()),
+                platform: Some("linux".to_string()),
+            };
+            let game = to_game(entry, &HashMap::new());
+            assert_eq!(game.exe_path.as_deref(), Some("/opt/elsewhere/game.sh"));
+        }
+
+        #[test]
+        fn read_titles_accepts_snake_case_app_name() {
+            let dir = temp_dir("titles-snake");
+            fs::create_dir_all(dir.join("gog_store")).unwrap();
+            fs::write(
+                dir.join("gog_store").join("library.json"),
+                r#"[{ "app_name": "123", "title": "Risk of Rain" }]"#,
+            )
+            .unwrap();
+
+            let titles = read_titles(&dir);
+            assert_eq!(titles.get("123"), Some(&"Risk of Rain".to_string()));
+
+            fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn read_titles_accepts_camel_case_app_name() {
+            let dir = temp_dir("titles-camel");
+            fs::create_dir_all(dir.join("gog_store")).unwrap();
+            fs::write(
+                dir.join("gog_store").join("library.json"),
+                r#"[{ "appName": "123", "title": "Risk of Rain" }]"#,
+            )
+            .unwrap();
+
+            let titles = read_titles(&dir);
+            assert_eq!(titles.get("123"), Some(&"Risk of Rain".to_string()));
+
+            fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn read_titles_returns_empty_map_when_library_json_missing() {
+            let dir = temp_dir("titles-missing");
+            assert!(read_titles(&dir).is_empty());
+            fs::remove_dir_all(&dir).unwrap();
+        }
+
+        #[test]
+        fn detect_skips_non_linux_platform_entries() {
+            // A Windows-platform GOG install run through Heroic's own Wine
+            // wrapper — this provider only launches by executing the
+            // binary directly, so a Windows .exe isn't launchable without
+            // Wine invocation logic this doesn't have. Must not be listed.
+            let dir = temp_dir("skip-windows-platform");
+            fs::create_dir_all(dir.join("gog_store")).unwrap();
+            fs::write(
+                dir.join("gog_store").join("installed.json"),
+                r#"[
+                    { "appName": "1", "install_path": "/home/u/Games/a", "executable": "a", "platform": "linux" },
+                    { "appName": "2", "install_path": "/home/u/Games/b", "executable": "b.exe", "platform": "windows" }
+                ]"#,
+            )
+            .unwrap();
+            fs::write(dir.join("gog_store").join("library.json"), "[]").unwrap();
+
+            let contents = fs::read_to_string(dir.join("gog_store").join("installed.json")).unwrap();
+            let parsed: InstalledGamesFile = serde_json::from_str(&contents).unwrap();
+            let InstalledGamesFile::List(entries) = parsed else {
+                panic!("expected List variant");
+            };
+            let kept: Vec<_> = entries.into_iter().filter(|e| e.platform.as_deref() == Some("linux")).collect();
+
+            assert_eq!(kept.len(), 1);
+            assert_eq!(kept[0].app_name, "1");
+
+            fs::remove_dir_all(&dir).unwrap();
+        }
     }
 }
 
