@@ -10,6 +10,12 @@ interface GameListProps {
   loading?: boolean;
   cacheVersion?: number;
   onMatchChecked?: () => void;
+  /** Shown as a call-to-action on the "no installed games at all" empty
+   *  state (not the "no search results" one) — a reviewer/new user
+   *  with nothing installed yet would otherwise hit a dead end on
+   *  first launch instead of seeing the app do anything. Optional so
+   *  tests/consumers that don't care about the Store tab can omit it. */
+  onBrowseStore?: () => void;
 }
 
 export function GameList({
@@ -21,6 +27,7 @@ export function GameList({
   loading = false,
   cacheVersion,
   onMatchChecked,
+  onBrowseStore,
 }: GameListProps) {
   if (loading && games.length === 0) {
     return (
@@ -46,8 +53,13 @@ export function GameList({
         <p>
           {hasAnyGames
             ? "No games match your search."
-            : "No installed games found. Steam and GOG titles installed on this machine will show up here automatically."}
+            : "No installed games found. Steam, GOG, and Epic titles installed on this machine will show up here automatically."}
         </p>
+        {!hasAnyGames && onBrowseStore && (
+          <button className="empty-state-cta" onClick={onBrowseStore}>
+            Browse the DRM-free store instead
+          </button>
+        )}
       </div>
     );
   }

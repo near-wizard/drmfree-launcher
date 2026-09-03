@@ -453,6 +453,10 @@ function App() {
           loading={loading}
           cacheVersion={cacheVersion}
           onMatchChecked={() => setCacheVersion((v) => v + 1)}
+          onBrowseStore={() => {
+            track("empty_state_browse_store_clicked");
+            setTab("store");
+          }}
         />
       </div>
       <div hidden={tab !== "store"}>

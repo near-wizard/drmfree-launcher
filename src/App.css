@@ -338,6 +338,10 @@ body {
   opacity: 0.85;
 }
 
+.empty-state-cta {
+  margin-top: 0.5rem;
+}
+
 /* ---------- Game rows: copper-cornered plates ---------- */
 
 .game-list {

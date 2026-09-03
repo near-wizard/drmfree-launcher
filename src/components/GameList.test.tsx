@@ -62,3 +62,49 @@ describe("GameList launching state", () => {
     );
   });
 });
+
+describe("GameList empty state", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("offers a Browse Store CTA when there are no installed games at all", () => {
+    const onBrowseStore = vi.fn();
+    render(
+      <GameList
+        games={[]}
+        onLaunch={() => {}}
+        launchingId={null}
+        providerLabels={{}}
+        hasAnyGames={false}
+        onBrowseStore={onBrowseStore}
+      />,
+    );
+    const cta = screen.getByRole("button", { name: /browse the drm-free store/i });
+    cta.click();
+    expect(onBrowseStore).toHaveBeenCalledOnce();
+  });
+
+  it("does not offer the Browse Store CTA when a search just filtered everything out", () => {
+    const onBrowseStore = vi.fn();
+    render(
+      <GameList
+        games={[]}
+        onLaunch={() => {}}
+        launchingId={null}
+        providerLabels={{}}
+        hasAnyGames={true}
+        onBrowseStore={onBrowseStore}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /browse the drm-free store/i })).toBeNull();
+    expect(screen.getByText("No games match your search.")).toBeInTheDocument();
+  });
+
+  it("does not render the CTA button at all when onBrowseStore is omitted", () => {
+    render(
+      <GameList games={[]} onLaunch={() => {}} launchingId={null} providerLabels={{}} hasAnyGames={false} />,
+    );
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+});
