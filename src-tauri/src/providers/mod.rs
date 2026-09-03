@@ -13,6 +13,13 @@ use serde::Serialize;
 /// rather than guessing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum DrmStatus {
+    // Only constructed by gog.rs's Windows-only registry scan today —
+    // GOG detection doesn't exist on other platforms yet, so this is
+    // genuinely dead code on non-Windows builds specifically (not
+    // reachable outside #[cfg(test)], which is its own compilation
+    // target and doesn't save it). Will stop needing this once GOG
+    // detection or another DRM-free source works cross-platform.
+    #[allow(dead_code)]
     #[serde(rename = "drm-free")]
     DrmFree,
     // No provider currently has a verified per-title source to assert
@@ -42,6 +49,9 @@ pub enum DrmStatus {
 pub enum DrmDeterminationMethod {
     /// Inferred from a storefront's own known-DRM-free policy at
     /// import time (e.g. "GOG is DRM-free") — not a per-title check.
+    // Same non-Windows dead-code situation as DrmStatus::DrmFree above:
+    // only constructed by gog.rs's Windows-only registry scan.
+    #[allow(dead_code)]
     GogImport,
     #[allow(dead_code)]
     /// The publisher/developer states DRM-free status themselves
@@ -87,6 +97,9 @@ impl DrmRecord {
         }
     }
 
+    // Same non-Windows dead-code situation as DrmStatus::DrmFree above:
+    // only called by gog.rs's Windows-only registry scan outside tests.
+    #[allow(dead_code)]
     pub fn drm_free(
         source: impl Into<String>,
         method: DrmDeterminationMethod,

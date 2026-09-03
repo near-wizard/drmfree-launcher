@@ -1,11 +1,21 @@
-use super::{DrmDeterminationMethod, DrmRecord, Game, GameProvider};
+use super::{Game, GameProvider};
 use serde::Deserialize;
+// DrmRecord/DrmDeterminationMethod are only actually used by the
+// Windows registry scan below — GOG detection doesn't exist yet on
+// other platforms (see `detect_installed_games`), so importing these
+// unconditionally makes them (and everything downstream of them:
+// resolve_exe_path, GOG_POLICY_VERIFIED_ON, even DrmStatus::DrmFree
+// and DrmDeterminationMethod::GogImport crate-wide) dead code under
+// `-D warnings` on non-Windows targets.
+#[cfg(target_os = "windows")]
+use super::{DrmDeterminationMethod, DrmRecord};
 
 /// Last date a maintainer confirmed GOG's storefront-wide DRM-free
 /// policy still holds. Fixed, not `now()` at scan time — a scan
 /// happens on every launch and "verified today" would be meaningless
 /// noise rather than an actual audit trail. Update by hand if this
 /// policy is ever reconfirmed or changes.
+#[cfg(target_os = "windows")]
 const GOG_POLICY_VERIFIED_ON: &str = "2026-09-02";
 
 pub struct GogProvider;
@@ -100,6 +110,7 @@ fn normalize_image_url(url: &str) -> String {
 /// absolute exe paths are used as-is, relative ones are joined onto the
 /// install path, and a missing/empty exe value falls back to the install
 /// path itself.
+#[cfg(target_os = "windows")]
 fn resolve_exe_path(exe: Option<&str>, install_path: &str) -> std::path::PathBuf {
     use std::path::Path;
     match exe {
@@ -179,7 +190,9 @@ mod windows {
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_image_url, resolve_exe_path, GogProductResponse};
+    use super::{normalize_image_url, GogProductResponse};
+    #[cfg(target_os = "windows")]
+    use super::resolve_exe_path;
 
     #[test]
     fn normalize_image_url_adds_https_to_protocol_relative_urls() {
@@ -221,24 +234,28 @@ mod tests {
         assert!(parsed.images.is_none());
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn relative_exe_joins_onto_install_path() {
         let resolved = resolve_exe_path(Some("game.exe"), "C:\\Games\\MyGame");
         assert_eq!(resolved, std::path::Path::new("C:\\Games\\MyGame\\game.exe"));
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn absolute_exe_is_used_as_is() {
         let resolved = resolve_exe_path(Some("D:\\Elsewhere\\game.exe"), "C:\\Games\\MyGame");
         assert_eq!(resolved, std::path::Path::new("D:\\Elsewhere\\game.exe"));
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn missing_exe_falls_back_to_install_path() {
         let resolved = resolve_exe_path(None, "C:\\Games\\MyGame");
         assert_eq!(resolved, std::path::Path::new("C:\\Games\\MyGame"));
     }
 
+    #[cfg(target_os = "windows")]
     #[test]
     fn empty_exe_falls_back_to_install_path() {
         let resolved = resolve_exe_path(Some(""), "C:\\Games\\MyGame");
