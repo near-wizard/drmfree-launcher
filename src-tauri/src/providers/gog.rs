@@ -1,16 +1,15 @@
 use super::{Game, GameProvider};
 use serde::Deserialize;
 // DrmRecord/DrmDeterminationMethod are only actually used by the
-// Windows registry scan and Linux Heroic scan below — GOG detection
-// doesn't exist on macOS yet (see `detect_installed_games`), so
-// importing these unconditionally makes them (and everything
+// Windows registry scan and the Heroic scan (Linux/macOS) below —
+// importing these unconditionally would make them (and everything
 // downstream of them: resolve_exe_path, GOG_POLICY_VERIFIED_ON, even
-// DrmStatus::DrmFree and DrmDeterminationMethod::GogImport
-// crate-wide) dead code under `-D warnings` on macOS specifically.
-// `test` is included so `mod linux`'s parsing logic can be unit
+// DrmStatus::DrmFree and DrmDeterminationMethod::GogImport crate-wide)
+// dead code under `-D warnings` on any other target.
+// `test` is included so `mod heroic`'s parsing logic can be unit
 // tested on any platform (it's pure JSON/string handling, no actual
-// Linux-only syscalls) rather than shipping it fully unverified.
-#[cfg(any(target_os = "windows", target_os = "linux", test))]
+// OS-specific syscalls) rather than shipping it fully unverified.
+#[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos", test))]
 use super::{DrmDeterminationMethod, DrmRecord};
 
 /// Last date a maintainer confirmed GOG's storefront-wide DRM-free
@@ -18,7 +17,7 @@ use super::{DrmDeterminationMethod, DrmRecord};
 /// happens on every launch and "verified today" would be meaningless
 /// noise rather than an actual audit trail. Update by hand if this
 /// policy is ever reconfirmed or changes.
-#[cfg(any(target_os = "windows", target_os = "linux", test))]
+#[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos", test))]
 const GOG_POLICY_VERIFIED_ON: &str = "2026-09-02";
 
 pub struct GogProvider;
@@ -38,18 +37,13 @@ impl GameProvider for GogProvider {
             windows::detect()
         }
 
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
         {
-            linux::detect()
+            heroic::detect()
         }
 
-        #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+        #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
         {
-            // GOG ships no native macOS client and has no standard
-            // install/registration location there — nothing reliable to
-            // local-scan yet. (Heroic does support macOS too, so this
-            // could follow the same approach as the Linux path below
-            // once its macOS config directory convention is confirmed.)
             Vec::new()
         }
     }
@@ -213,33 +207,56 @@ mod windows {
     }
 }
 
-/// GOG ships no native Linux client, so there's no first-party install
-/// location to scan (unlike Windows' registry). Heroic Games Launcher is
-/// the closest thing to a standard location for GOG installs on Linux,
-/// so detection here reads Heroic's own data instead.
-///
 /// **Best-effort, not verified against a real installed.json** — no
-/// Linux+Heroic install was available to test against. Field names below
-/// (`appName`, `install_path`, `executable`, `platform`) are taken from
-/// reading Heroic's own source directly (`src/backend/storeManagers/gog/
-/// library.ts`, `InstalledInfo` type, as of 2026-09), not official docs —
-/// this project has no control over that schema and it isn't guaranteed
-/// stable. Parsing is deliberately permissive throughout: any entry, or
-/// the whole file, that doesn't match is skipped rather than erroring, so
-/// a wrong guess here means "no GOG games detected on Linux" (identical
-/// to the previous behavior), never a crash. Revisit with a real sample
-/// file if this doesn't actually detect anything in practice.
+/// real Heroic install (Linux or macOS) was available to test against.
+/// Field names below (`appName`, `install_path`, `executable`,
+/// `platform`) are taken from reading Heroic's own source directly
+/// (`src/backend/storeManagers/gog/library.ts`, `InstalledInfo` type,
+/// as of 2026-09), not official docs — this project has no control
+/// over that schema and it isn't guaranteed stable. Parsing is
+/// deliberately permissive throughout: any entry, or the whole file,
+/// that doesn't match is skipped rather than erroring, so a wrong
+/// guess here means "no GOG games detected" (identical to the
+/// previous behavior on that platform), never a crash. Revisit with a
+/// real sample file if this doesn't actually detect anything in
+/// practice.
 ///
 /// Compiled under `cfg(test)` on any platform too, so the parsing/
-/// mapping logic (pure JSON + string handling, no actual Linux-only
+/// mapping logic (pure JSON + string handling, no actual OS-specific
 /// syscalls) is unit tested rather than shipped fully unverified —
-/// only the real, non-test build restricts this to target_os="linux".
-#[cfg(any(target_os = "linux", test))]
-mod linux {
+/// only the real, non-test build restricts this to
+/// target_os="linux"/"macos". GOG ships no native Linux or macOS
+/// client and has no standard install/registration location on
+/// either — this reads [Heroic Games Launcher](https://heroicgameslauncher.com/)'s
+/// own data instead, which supports both platforms from the same
+/// `gog_store` JSON schema (only the config directory convention and
+/// the `platform` field's value differ). Same caveat as always: this
+/// schema isn't officially documented, so it's best-effort, not
+/// guaranteed — the macOS config directory in particular follows
+/// Electron's standard per-app `~/Library/Application Support/<name>`
+/// convention (high confidence) but hasn't been verified against a
+/// real installed.json the way the Linux path partially has.
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
+mod heroic {
     use super::{DrmDeterminationMethod, DrmRecord, Game};
     use serde::Deserialize;
     use std::collections::HashMap;
     use std::path::{Path, PathBuf};
+
+    /// Heroic's GOG-store platform value for a Linux-native install.
+    /// Only actually read (via NATIVE_PLATFORM below) on a real Linux
+    /// build — genuinely unused dead code on a real macOS build, same
+    /// reasoning as GOG_POLICY_VERIFIED_ON above, kept around under
+    /// `test` so both constants stay checkable regardless of host OS.
+    #[allow(dead_code)]
+    const PLATFORM_LINUX: &str = "linux";
+    /// Heroic's GOG-store platform value for a macOS-native install —
+    /// GOG's own API/depot tooling calls the Mac platform "osx", and
+    /// Heroic's GOG integration (gogdl) follows that convention rather
+    /// than inventing its own. Same dead-code-on-the-other-OS situation
+    /// as PLATFORM_LINUX.
+    #[allow(dead_code)]
+    const PLATFORM_MACOS: &str = "osx";
 
     #[derive(Debug, Deserialize)]
     struct InstalledInfo {
@@ -275,22 +292,39 @@ mod linux {
     // Not called by any test (mocking dirs::home_dir() isn't worth the
     // complexity — the tests exercise to_game/read_titles/parsing
     // directly instead) — genuinely dead in a cfg(test) build on a
-    // non-Linux host, where this module compiles for testing but the
-    // real target_os="linux" production caller in
+    // host that's neither Linux nor macOS, where this module compiles
+    // for testing but the real production caller in
     // detect_installed_games doesn't exist.
     #[allow(dead_code)]
     fn heroic_config_dirs() -> Vec<PathBuf> {
         let Some(home) = dirs::home_dir() else {
             return Vec::new();
         };
-        [
+
+        #[cfg(target_os = "macos")]
+        let candidates: [&str; 1] = ["Library/Application Support/heroic"];
+
+        #[cfg(not(target_os = "macos"))]
+        let candidates: [&str; 2] = [
             ".config/heroic",
             ".var/app/com.heroicgameslauncher.hgl/config/heroic",
-        ]
-        .into_iter()
-        .map(|p| home.join(p))
-        .collect()
+        ];
+
+        candidates.into_iter().map(|p| home.join(p)).collect()
     }
+
+    /// This build's native Heroic/GOG platform value — the only one a
+    /// direct-exe launch (no Wine/emulation handoff) can actually run.
+    /// An entry installed for a *different* platform via Heroic's own
+    /// Wine wrapper (e.g. a Windows .exe on Linux) is real but not
+    /// launchable by this provider, so it's filtered out rather than
+    /// listed and failing on Play.
+    #[cfg(target_os = "macos")]
+    #[allow(dead_code)]
+    const NATIVE_PLATFORM: &str = PLATFORM_MACOS;
+    #[cfg(not(target_os = "macos"))]
+    #[allow(dead_code)]
+    const NATIVE_PLATFORM: &str = PLATFORM_LINUX;
 
     #[allow(dead_code)]
     pub fn detect() -> Vec<Game> {
@@ -311,7 +345,7 @@ mod linux {
 
             return entries
                 .into_iter()
-                .filter(|e| e.platform.as_deref() == Some("linux"))
+                .filter(|e| e.platform.as_deref() == Some(NATIVE_PLATFORM))
                 .map(|e| to_game(e, &titles))
                 .collect();
         }
@@ -321,12 +355,13 @@ mod linux {
     fn to_game(entry: InstalledInfo, titles: &HashMap<String, String>) -> Game {
         let name = titles.get(&entry.app_name).cloned().unwrap_or_else(|| entry.app_name.clone());
         // Deliberately not std::path::Path here: these are always POSIX
-        // paths (this only ever runs against a real Linux install), but
-        // Path's separator follows the *compiling* target, not the
-        // string's own shape — using it would silently join with `\`
-        // when this module is compiled for testing on Windows, and a
-        // test asserting the (correct, `/`-joined) real Linux behavior
-        // caught exactly that before this comment existed.
+        // paths (this only ever runs against a real Linux or macOS
+        // install), but Path's separator follows the *compiling*
+        // target, not the string's own shape — using it would silently
+        // join with `\` when this module is compiled for testing on
+        // Windows, and a test asserting the (correct, `/`-joined) real
+        // Linux behavior caught exactly that before this comment
+        // existed.
         let exe_path = entry.executable.map(|exe| {
             if exe.starts_with('/') {
                 exe
@@ -528,6 +563,41 @@ mod linux {
             assert_eq!(kept[0].app_name, "1");
 
             fs::remove_dir_all(&dir).unwrap();
+        }
+
+        // Guards against a typo silently breaking macOS detection (or
+        // Linux detection) the way a wrong platform string would: the
+        // filter would just always come up empty, which looks
+        // identical to "no games installed" rather than an obvious
+        // error.
+        #[test]
+        fn platform_constants_match_heroics_gogdl_convention() {
+            assert_eq!(PLATFORM_LINUX, "linux");
+            assert_eq!(PLATFORM_MACOS, "osx");
+        }
+
+        #[test]
+        fn installed_games_file_filters_to_macos_platform_entries() {
+            // Mirrors detect_skips_non_linux_platform_entries above, but
+            // for a macOS-native install alongside a Windows-via-Wine
+            // one and a Linux-native one — exercises that "osx" (not
+            // "mac" or "macos") is the value actually filtered on.
+            let json = r#"[
+                { "appName": "1", "install_path": "/Users/u/Games/a", "executable": "a.app", "platform": "osx" },
+                { "appName": "2", "install_path": "/Users/u/Games/b", "executable": "b", "platform": "linux" },
+                { "appName": "3", "install_path": "/Users/u/Games/c", "executable": "c.exe", "platform": "windows" }
+            ]"#;
+            let parsed: InstalledGamesFile = serde_json::from_str(json).unwrap();
+            let InstalledGamesFile::List(entries) = parsed else {
+                panic!("expected List variant");
+            };
+            let kept: Vec<_> = entries
+                .into_iter()
+                .filter(|e| e.platform.as_deref() == Some(PLATFORM_MACOS))
+                .collect();
+
+            assert_eq!(kept.len(), 1);
+            assert_eq!(kept[0].app_name, "1");
         }
     }
 }

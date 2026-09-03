@@ -11,9 +11,9 @@ monetization, zero accounts.
 - [x] `GameProvider` abstraction
 - [x] Steam provider (detect + `steam://rungameid/` launch)
 - [x] GOG provider (detect + direct exe launch) — Windows via registry;
-      Linux via Heroic Games Launcher's own data (best-effort, unverified
-      against a real installed.json — see `providers/gog.rs`); macOS
-      not yet supported.
+      Linux and macOS via Heroic Games Launcher's own data (best-effort,
+      unverified against a real installed.json on either OS — see
+      `providers/gog.rs`).
 - [x] Unified library UI shell
 - [x] Packaged builds — Windows (MSI/NSIS), Linux, and macOS all ship
       via `.github/workflows/release.yml` (first tag: v0.1.0). A CI-only
