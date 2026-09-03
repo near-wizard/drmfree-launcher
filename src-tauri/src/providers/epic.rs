@@ -1,4 +1,4 @@
-use super::{Game, GameProvider};
+use super::{DrmStatus, Game, GameProvider};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -106,6 +106,7 @@ fn manifest_to_game(contents: &str) -> Option<Game> {
         provider: "epic",
         install_dir: manifest.install_location,
         exe_path: None,
+        drm_status: DrmStatus::Unknown,
     })
 }
 

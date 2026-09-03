@@ -1,4 +1,4 @@
-use super::{Game, GameProvider};
+use super::{DrmStatus, Game, GameProvider};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -156,6 +156,7 @@ fn games_in_library(steamapps_dir: &Path) -> Vec<Game> {
                         .to_string()
                 }),
                 exe_path: None,
+                drm_status: DrmStatus::Unknown,
             })
         })
         .collect()

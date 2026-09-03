@@ -4,6 +4,29 @@ pub mod steam;
 
 use serde::Serialize;
 
+/// Whether a detected game is known to be DRM-free. This is a
+/// storefront-level default, not a verified per-title fact — see
+/// decision 0008. GOG's DRM-free-by-policy status is safe to assert
+/// outright; Steam/Epic DRM varies per-title and there is no legally
+/// clean per-title data source yet (PCGamingWiki's list is CC
+/// BY-NC-SA, ruled out for this use), so those default to `Unknown`
+/// rather than guessing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum DrmStatus {
+    #[serde(rename = "drm-free")]
+    DrmFree,
+    // No provider currently has a verified per-title source to assert
+    // this positively (as opposed to defaulting to Unknown) — it's
+    // part of the state space this type represents, not dead API
+    // surface, and will be constructed once decision 0008's dataset
+    // exists.
+    #[allow(dead_code)]
+    #[serde(rename = "drm")]
+    Drm,
+    #[serde(rename = "unknown")]
+    Unknown,
+}
+
 /// A single locally-installed game, normalized across providers.
 #[derive(Debug, Clone, Serialize)]
 pub struct Game {
@@ -17,6 +40,7 @@ pub struct Game {
     /// DRM-free providers). `None` when launch uses `id` alone, as with
     /// Steam's `steam://rungameid/<id>` handoff.
     pub exe_path: Option<String>,
+    pub drm_status: DrmStatus,
 }
 
 /// Abstraction over "a place games can be installed and launched from".
