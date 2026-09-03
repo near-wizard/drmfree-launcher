@@ -139,6 +139,44 @@ fn to_listing(p: CatalogProduct) -> StoreListing {
     }
 }
 
+/// Normalizes a title for exact-match comparison: case-insensitive,
+/// strips trademark/registered/copyright marks, collapses whitespace.
+/// Deliberately NOT stripping words like "Edition"/"Demo"/"Bundle" —
+/// decision 0006 flags exactly that kind of over-eager normalization
+/// as the false-positive risk to avoid (a real Steam library surfaced
+/// "Half Sword Demo", which must not match a paid "Half Sword" entry).
+fn normalize_title(title: &str) -> String {
+    title
+        .chars()
+        .filter(|c| !matches!(c, '™' | '®' | '©'))
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Finds an exact-title match for a locally-detected game in GOG's
+/// catalog — the first (deliberately conservative) implementation of
+/// decision 0006's title-matching mechanism. Exact match only (modulo
+/// case/whitespace/trademark-symbol noise), checked against page 1 of
+/// results only: a false "DRM-free version available" prompt on the
+/// wrong title is worse than occasionally missing a real match, and a
+/// real match for an exact title is expected to rank near the top of
+/// GOG's own search relevance anyway.
+#[tauri::command]
+pub async fn find_gog_match(title: String) -> Result<Option<StoreListing>, String> {
+    let result = search_store(Some(title.clone()), Some(1), Some(false)).await?;
+    Ok(find_exact_match(result.listings, &title))
+}
+
+fn find_exact_match(listings: Vec<StoreListing>, title: &str) -> Option<StoreListing> {
+    let target = normalize_title(title);
+    listings
+        .into_iter()
+        .find(|listing| normalize_title(&listing.title) == target)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -241,5 +279,51 @@ mod tests {
 
         assert_eq!(result.listings.len(), 3);
         assert!(result.listings.iter().any(|l| l.title == "Being a DIK - Season 1"));
+    }
+
+    fn listing(title: &str) -> StoreListing {
+        StoreListing {
+            title: title.to_string(),
+            price: None,
+            cover_url: None,
+            store_url: format!("https://www.gog.com/en/game/{title}"),
+            store: "gog",
+        }
+    }
+
+    #[test]
+    fn normalize_title_is_case_and_whitespace_insensitive() {
+        assert_eq!(
+            normalize_title("  The   Witcher™ 3: Wild Hunt  "),
+            normalize_title("the witcher 3: wild hunt")
+        );
+    }
+
+    #[test]
+    fn normalize_title_strips_trademark_symbols_only() {
+        assert_eq!(normalize_title("Rocket League®"), "rocket league");
+    }
+
+    #[test]
+    fn find_exact_match_matches_case_and_symbol_insensitively() {
+        let listings = vec![listing("The Witcher™ 3: Wild Hunt"), listing("Cyberpunk 2077")];
+        let found = find_exact_match(listings, "the witcher 3: wild hunt");
+        assert_eq!(found.map(|l| l.title), Some("The Witcher™ 3: Wild Hunt".to_string()));
+    }
+
+    #[test]
+    fn find_exact_match_does_not_match_a_demo_against_the_full_game() {
+        // The exact false-positive decision 0006 calls out by name: a
+        // locally-detected "Half Sword Demo" must not match a paid
+        // "Half Sword" catalog entry just because they share a prefix.
+        let listings = vec![listing("Half Sword")];
+        let found = find_exact_match(listings, "Half Sword Demo");
+        assert!(found.is_none());
+    }
+
+    #[test]
+    fn find_exact_match_returns_none_when_no_listing_matches() {
+        let listings = vec![listing("Some Other Game")];
+        assert!(find_exact_match(listings, "Untitled Goose Game").is_none());
     }
 }

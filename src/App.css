@@ -203,6 +203,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex: 1;
   min-width: 0;
 }
 
@@ -228,6 +229,8 @@ body {
 
 .game-name {
   font-weight: 500;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -346,6 +349,13 @@ button:disabled {
   opacity: 0.6;
 }
 
+.game-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
 .game-card button {
   background-color: transparent;
   color: var(--accent);
@@ -357,6 +367,49 @@ button:disabled {
 .game-card button:hover:not(:disabled) {
   background-color: var(--accent);
   color: #ffffff;
+}
+
+.game-card button.upgrade-check-button {
+  font-size: 0.8rem;
+  padding: 0.35em 0.8em;
+  color: var(--text-muted);
+}
+
+.upgrade-check-status {
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.upgrade-check-status .spinner {
+  border-color: rgba(107, 114, 128, 0.3);
+  border-top-color: var(--text-muted);
+}
+
+.game-card button.upgrade-found-button {
+  font-size: 0.8rem;
+  padding: 0.35em 0.8em;
+  color: #1e7a3d;
+  border-color: #1e7a3d;
+}
+
+.game-card button.upgrade-found-button:hover:not(:disabled) {
+  background-color: #1e7a3d;
+  color: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .game-card button.upgrade-found-button {
+    color: #7fe3a0;
+    border-color: #7fe3a0;
+  }
+
+  .game-card button.upgrade-found-button:hover:not(:disabled) {
+    background-color: #7fe3a0;
+    color: #16181d;
+  }
 }
 
 .store-disclosure {

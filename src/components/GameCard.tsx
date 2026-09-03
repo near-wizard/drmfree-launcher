@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
+import type { StoreListing } from "../types/store";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
   "drm-free": "DRM-Free",
@@ -46,6 +48,55 @@ async function fetchGogCoverArt(id: string): Promise<string | null> {
   const url = await invoke<string | null>("get_gog_cover_art", { id }).catch(() => null);
   gogCoverArtCache.set(id, url);
   return url;
+}
+
+// On-demand, not automatic — checking every installed game against
+// GOG's catalog the moment the library loads would mean dozens of
+// outbound requests on every launch for a large library. This is the
+// first consumer of decision 0006's "buy DRM-free version" loop, kept
+// deliberately opt-in per game (decision 0002's non-invasive spirit).
+type UpgradeCheckState =
+  | { status: "idle" }
+  | { status: "checking" }
+  | { status: "found"; storeUrl: string }
+  | { status: "not-found" };
+
+function GogUpgradeCheck({ game }: { game: Game }) {
+  const [state, setState] = useState<UpgradeCheckState>({ status: "idle" });
+
+  async function check() {
+    setState({ status: "checking" });
+    try {
+      const match = await invoke<StoreListing | null>("find_gog_match", { title: game.name });
+      setState(match ? { status: "found", storeUrl: match.store_url } : { status: "not-found" });
+    } catch {
+      setState({ status: "not-found" });
+    }
+  }
+
+  switch (state.status) {
+    case "idle":
+      return (
+        <button className="upgrade-check-button" onClick={check}>
+          Check GOG
+        </button>
+      );
+    case "checking":
+      return (
+        <span className="upgrade-check-status">
+          <span className="spinner" aria-hidden="true" />
+          Checking...
+        </span>
+      );
+    case "found":
+      return (
+        <button className="upgrade-found-button" onClick={() => openUrl(state.storeUrl)}>
+          Buy DRM-free on GOG
+        </button>
+      );
+    case "not-found":
+      return <span className="upgrade-check-status">No GOG match found</span>;
+  }
 }
 
 interface GameCardProps {
@@ -96,9 +147,12 @@ export function GameCard({ game, onLaunch, launching, providerLabels }: GameCard
         </span>
         <span className="game-name">{game.name}</span>
       </div>
-      <button disabled={launching} onClick={() => onLaunch(game)}>
-        {launching ? "Launching..." : "Play"}
-      </button>
+      <div className="game-card-actions">
+        {game.provider !== "gog" && <GogUpgradeCheck game={game} />}
+        <button disabled={launching} onClick={() => onLaunch(game)}>
+          {launching ? "Launching..." : "Play"}
+        </button>
+      </div>
     </div>
   );
 }
