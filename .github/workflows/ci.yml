@@ -8,14 +8,14 @@ on:
 jobs:
   check:
     strategy:
-      # macOS dropped for now: a clippy lint fails there (macos-latest,
-      # 2026-09-03) that isn't reproducible on Windows/Linux locally
-      # (no Mac available to test against, and cross-compiling clippy
-      # checks for macOS from Windows fails earlier on missing `cc`).
-      # Revisit with real macOS CI access to diagnose properly instead
-      # of guessing at the fix blind.
+      fail-fast: false
+      # Re-testing macOS (2026-09-03) after fixing the real root cause
+      # found via the ubuntu-latest failure (Windows-only GOG code left
+      # dead items on non-Windows builds) -- that wasn't actually
+      # macOS-specific, so this should now pass there too. Remove
+      # fail-fast/this comment once confirmed.
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
