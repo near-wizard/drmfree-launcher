@@ -452,7 +452,8 @@ button:disabled {
   margin-top: 1.5rem;
 }
 
-.store-card-skeleton {
+.store-card-skeleton,
+.game-card-skeleton {
   pointer-events: none;
 }
 

@@ -7,6 +7,7 @@ interface GameListProps {
   launchingId: string | null;
   providerLabels: Record<string, string>;
   hasAnyGames?: boolean;
+  loading?: boolean;
 }
 
 export function GameList({
@@ -15,7 +16,23 @@ export function GameList({
   launchingId,
   providerLabels,
   hasAnyGames = games.length > 0,
+  loading = false,
 }: GameListProps) {
+  if (loading && games.length === 0) {
+    return (
+      <div className="game-list" aria-hidden="true">
+        {Array.from({ length: 6 }, (_, i) => (
+          <div key={i} className="game-card game-card-skeleton">
+            <div className="game-card-info">
+              <div className="game-thumb skeleton-shimmer" />
+              <div className="skeleton-line skeleton-shimmer" style={{ width: "10rem" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (games.length === 0) {
     return (
       <div className="empty-state">

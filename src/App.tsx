@@ -134,6 +134,7 @@ function App() {
           launchingId={launchingId}
           providerLabels={providerLabels}
           hasAnyGames={games.length > 0}
+          loading={loading}
         />
       </div>
       <div hidden={tab !== "store"}>

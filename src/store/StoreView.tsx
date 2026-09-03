@@ -3,6 +3,15 @@ import { invoke } from "@tauri-apps/api/core";
 import type { StoreListing, StoreSearchResult } from "../types/store";
 import { StoreCard } from "./StoreCard";
 
+// The backend's error strings are accurate but Rust/reqwest-flavored
+// ("error sending request for url (...): error trying to connect: ...").
+// Keep the technical detail in the console for debugging, show a short
+// human-readable message in the UI.
+function friendlyStoreError(e: unknown): string {
+  console.error("store search failed:", e);
+  return "Couldn't reach GOG's catalog. Check your connection and try again.";
+}
+
 export function StoreView() {
   const [query, setQuery] = useState("");
   const [listings, setListings] = useState<StoreListing[]>([]);
@@ -32,7 +41,7 @@ export function StoreView() {
         })
         .catch((e) => {
           if (searchToken.current !== token) return;
-          setError(String(e));
+          setError(friendlyStoreError(e));
         })
         .finally(() => {
           if (searchToken.current === token) setLoading(false);
@@ -56,7 +65,7 @@ export function StoreView() {
       setPage(result.page);
       setTotalPages(result.total_pages);
     } catch (e) {
-      if (searchToken.current === token) setError(String(e));
+      if (searchToken.current === token) setError(friendlyStoreError(e));
     } finally {
       if (searchToken.current === token) setLoadingMore(false);
     }
