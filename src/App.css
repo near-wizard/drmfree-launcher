@@ -342,6 +342,52 @@ body {
   margin-top: 0.5rem;
 }
 
+/* ---------- Crash state (ErrorBoundary fallback) ---------- */
+
+.crash-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: center;
+  padding: 4rem 1rem;
+  line-height: 1.6;
+}
+
+.crash-state .mascot {
+  width: 3rem;
+  height: 3rem;
+  opacity: 0.85;
+}
+
+.crash-state h1 {
+  margin: 0;
+}
+
+.crash-state-message {
+  max-width: 34rem;
+  color: var(--paper-dim);
+}
+
+.crash-state-detail {
+  max-width: 34rem;
+  overflow-x: auto;
+  padding: 0.6em 1em;
+  background: linear-gradient(180deg, #4a2818 0%, var(--danger-bg) 100%);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  color: #ffe0d0;
+  font-size: 0.8em;
+  white-space: pre-wrap;
+  text-align: left;
+}
+
+.crash-state-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
 /* ---------- Game rows: copper-cornered plates ---------- */
 
 .game-list {
