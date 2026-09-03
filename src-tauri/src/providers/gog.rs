@@ -85,7 +85,9 @@ struct GogProductResponse {
 #[tauri::command]
 pub async fn get_gog_cover_art(id: String) -> Result<Option<String>, String> {
     let url = format!("https://api.gog.com/products/{id}");
-    let response = reqwest::get(&url)
+    let response = crate::http::client()
+        .get(&url)
+        .send()
         .await
         .map_err(|e| format!("failed to reach GOG product API: {e}"))?;
 
@@ -175,6 +177,19 @@ mod windows {
                 };
 
                 let exe_path = resolve_exe_path(exe.as_deref().ok(), &path);
+
+                // GOG launches this exe directly with no client mediation
+                // (unlike Steam/Epic, which hand off to their own
+                // launcher and can themselves detect/repair a broken
+                // install) — a registry key surviving an incomplete
+                // uninstall or a manually-deleted game folder would
+                // otherwise show a "Play" button whose only outcome is a
+                // raw OS "file not found" error. Skip it instead, same as
+                // if it were never installed; a fresh install writes its
+                // own registry key back.
+                if !exe_path.exists() {
+                    continue;
+                }
 
                 games.push(Game {
                     id: game_id,
@@ -589,5 +604,33 @@ mod tests {
     fn empty_exe_falls_back_to_install_path() {
         let resolved = resolve_exe_path(Some(""), "C:\\Games\\MyGame");
         assert_eq!(resolved, std::path::Path::new("C:\\Games\\MyGame"));
+    }
+
+    // Regression guard for the stale-registry-entry filter in
+    // windows::detect(): resolve_exe_path's output is exactly what gets
+    // exists()-checked there, so this confirms that check actually
+    // distinguishes a real install from a leftover/deleted one using
+    // the same resolution logic, not just Path::exists() in isolation.
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn resolved_exe_path_existence_matches_real_file_on_disk() {
+        let dir = std::env::temp_dir().join(format!(
+            "drmfree-launcher-test-gog-stale-entry-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("game.exe"), b"").unwrap();
+
+        let installed = resolve_exe_path(Some("game.exe"), dir.to_str().unwrap());
+        assert!(installed.exists(), "existing exe should resolve as present");
+
+        let uninstalled = resolve_exe_path(Some("missing.exe"), dir.to_str().unwrap());
+        assert!(
+            !uninstalled.exists(),
+            "a registry key left behind after uninstall/deletion should resolve as absent"
+        );
+
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }
