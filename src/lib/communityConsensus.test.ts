@@ -13,7 +13,7 @@ const unknownRecord: DrmRecord = { status: "unknown", source: null, method: null
 const gogRecord: DrmRecord = {
   status: "drm-free",
   source: "GOG",
-  method: "gog_import",
+  method: "storefront_import",
   verified_on: "2026-01-01",
 };
 

@@ -4,7 +4,7 @@ use serde::Deserialize;
 // Windows registry scan and the Heroic scan (Linux/macOS) below —
 // importing these unconditionally would make them (and everything
 // downstream of them: resolve_exe_path, GOG_POLICY_VERIFIED_ON, even
-// DrmStatus::DrmFree and DrmDeterminationMethod::GogImport crate-wide)
+// DrmStatus::DrmFree and DrmDeterminationMethod::StorefrontImport crate-wide)
 // dead code under `-D warnings` on any other target.
 // `test` is included so `mod heroic`'s parsing logic can be unit
 // tested on any platform (it's pure JSON/string handling, no actual
@@ -196,7 +196,7 @@ mod windows {
                     // varies per-title (see decision 0008).
                     drm: DrmRecord::drm_free(
                         "gog",
-                        DrmDeterminationMethod::GogImport,
+                        DrmDeterminationMethod::StorefrontImport,
                         super::GOG_POLICY_VERIFIED_ON,
                     ),
                 });
@@ -379,7 +379,7 @@ mod heroic {
             // Same policy-level assertion as the Windows scan above —
             // GOG's whole storefront is DRM-free regardless of which OS
             // detected the install.
-            drm: DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport, super::GOG_POLICY_VERIFIED_ON),
+            drm: DrmRecord::drm_free("gog", DrmDeterminationMethod::StorefrontImport, super::GOG_POLICY_VERIFIED_ON),
         }
     }
 

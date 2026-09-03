@@ -1,7 +1,7 @@
 export type DrmStatus = "drm-free" | "drm" | "unknown";
 
 export type DrmDeterminationMethod =
-  | "gog_import"
+  | "storefront_import"
   | "publisher_declared"
   | "community_review"
   | "manual_review";

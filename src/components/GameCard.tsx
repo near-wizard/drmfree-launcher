@@ -21,7 +21,7 @@ const DRM_LABELS: Record<DrmStatus, string> = {
 };
 
 const DETERMINATION_LABELS: Record<DrmDeterminationMethod, string> = {
-  gog_import: "GOG storefront policy",
+  storefront_import: "storefront policy",
   publisher_declared: "publisher declared",
   community_review: "community review",
   manual_review: "manual review",

@@ -51,7 +51,7 @@ describe("GameCard DRM badge with community consensus", () => {
   it("never overrides a badge that already has a verified local determination", async () => {
     invokeMock.mockResolvedValue({ total: 10, counts: { "drm-free": 0, drm: 10, unknown: 0 }, recentNotes: [] });
     const game = makeGame({
-      drm: { status: "drm-free", source: "GOG", method: "gog_import", verified_on: "2026-01-01" },
+      drm: { status: "drm-free", source: "GOG", method: "storefront_import", verified_on: "2026-01-01" },
     });
     const { container } = render(
       <GameCard game={game} onLaunch={() => {}} launching={false} providerLabels={{}} />,
@@ -59,7 +59,7 @@ describe("GameCard DRM badge with community consensus", () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
     const badge = container.querySelector(".drm-badge")!;
     expect(badge).toHaveTextContent("DRM-Free");
-    expect(badge).toHaveAttribute("title", expect.stringContaining("GOG storefront policy"));
+    expect(badge).toHaveAttribute("title", expect.stringContaining("storefront policy"));
   });
 
   it("renders no community report widget when the backend isn't configured", async () => {
@@ -225,7 +225,7 @@ describe("GameCard multiplayer-needs-platform flag", () => {
 
   function makeDrmFreeGame(overrides: Partial<Game> = {}): Game {
     return makeGame({
-      drm: { status: "drm-free", source: "gog", method: "gog_import", verified_on: "2026-01-01" },
+      drm: { status: "drm-free", source: "gog", method: "storefront_import", verified_on: "2026-01-01" },
       ...overrides,
     });
   }

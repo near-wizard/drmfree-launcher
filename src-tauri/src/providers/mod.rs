@@ -1,5 +1,6 @@
 pub mod epic;
 pub mod gog;
+pub mod humble;
 pub mod steam;
 
 use serde::Serialize;
@@ -41,18 +42,25 @@ pub enum DrmStatus {
 /// compiled dataset, a direct publisher deal) need to be tellable apart
 /// from each other and from today's blanket GOG-storefront assumption.
 ///
-/// Only `GogImport` is actually constructed anywhere today; the rest
-/// are here so `DrmRecord` doesn't need a breaking shape change once
-/// decision 0008's dataset (or a publisher/community source) exists.
+/// `StorefrontImport` is the only one actually constructed anywhere
+/// today (by both gog.rs and humble.rs — both storefronts sell their
+/// whole catalog DRM-free by policy); the rest are here so `DrmRecord`
+/// doesn't need a breaking shape change once decision 0008's dataset
+/// (or a publisher/community source) exists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum DrmDeterminationMethod {
     /// Inferred from a storefront's own known-DRM-free policy at
-    /// import time (e.g. "GOG is DRM-free") — not a per-title check.
+    /// import time (e.g. "GOG is DRM-free", "Humble Bundle is
+    /// DRM-free") — not a per-title check. Named generically rather
+    /// than after GOG specifically (its first user) precisely so a
+    /// second storefront could reuse it without a misleading label —
+    /// see decision 0020.
     // Same non-Windows dead-code situation as DrmStatus::DrmFree above:
-    // only constructed by gog.rs's Windows-only registry scan.
+    // only constructed by gog.rs's Windows-only registry scan and
+    // humble.rs.
     #[allow(dead_code)]
-    GogImport,
+    StorefrontImport,
     #[allow(dead_code)]
     /// The publisher/developer states DRM-free status themselves
     /// (store page copy, press kit, direct statement).
@@ -162,6 +170,7 @@ pub fn all_providers() -> Vec<Box<dyn GameProvider>> {
         Box::new(steam::SteamProvider),
         Box::new(gog::GogProvider),
         Box::new(epic::EpicProvider),
+        Box::new(humble::HumbleProvider),
     ]
 }
 
@@ -180,10 +189,10 @@ mod tests {
 
     #[test]
     fn drm_free_record_carries_source_method_and_verified_date() {
-        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport, "2026-09-02");
+        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::StorefrontImport, "2026-09-02");
         assert_eq!(record.status, DrmStatus::DrmFree);
         assert_eq!(record.source.as_deref(), Some("gog"));
-        assert_eq!(record.method, Some(DrmDeterminationMethod::GogImport));
+        assert_eq!(record.method, Some(DrmDeterminationMethod::StorefrontImport));
         assert_eq!(record.verified_on.as_deref(), Some("2026-09-02"));
     }
 
@@ -192,14 +201,14 @@ mod tests {
     // this test failing.
     #[test]
     fn drm_record_serializes_with_snake_case_method_and_named_fields() {
-        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport, "2026-09-02");
+        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::StorefrontImport, "2026-09-02");
         let json = serde_json::to_value(&record).unwrap();
         assert_eq!(
             json,
             serde_json::json!({
                 "status": "drm-free",
                 "source": "gog",
-                "method": "gog_import",
+                "method": "storefront_import",
                 "verified_on": "2026-09-02",
             })
         );

@@ -17,7 +17,7 @@ function makeGame(overrides: Partial<Game> = {}): Game {
 describe("freedomStats", () => {
   it("counts drm-free games out of the total", () => {
     const games = [
-      makeGame({ id: "1", drm: { status: "drm-free", source: "gog", method: "gog_import", verified_on: "2026-01-01" } }),
+      makeGame({ id: "1", drm: { status: "drm-free", source: "gog", method: "storefront_import", verified_on: "2026-01-01" } }),
       makeGame({ id: "2", drm: { status: "drm", source: null, method: null, verified_on: null } }),
       makeGame({ id: "3", drm: { status: "unknown", source: null, method: null, verified_on: null } }),
     ];
@@ -30,8 +30,8 @@ describe("freedomStats", () => {
 
   it("rounds the percentage", () => {
     const games = [
-      makeGame({ id: "1", drm: { status: "drm-free", source: "gog", method: "gog_import", verified_on: "2026-01-01" } }),
-      makeGame({ id: "2", drm: { status: "drm-free", source: "gog", method: "gog_import", verified_on: "2026-01-01" } }),
+      makeGame({ id: "1", drm: { status: "drm-free", source: "gog", method: "storefront_import", verified_on: "2026-01-01" } }),
+      makeGame({ id: "2", drm: { status: "drm-free", source: "gog", method: "storefront_import", verified_on: "2026-01-01" } }),
       makeGame({ id: "3", drm: { status: "unknown", source: null, method: null, verified_on: null } }),
     ];
     expect(freedomStats(games).pct).toBe(67);
