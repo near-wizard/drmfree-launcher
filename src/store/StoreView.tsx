@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { StoreListing, StoreSearchResult } from "../types/store";
+import type { StoreListing, StoreSearchResult, StoreSourceInfo } from "../types/store";
 import { StoreCard } from "./StoreCard";
 import { track } from "../lib/analytics";
 
@@ -10,8 +10,12 @@ import { track } from "../lib/analytics";
 // human-readable message in the UI.
 function friendlyStoreError(e: unknown): string {
   console.error("store search failed:", e);
-  return "Couldn't reach GOG's catalog. Check your connection and try again.";
+  return "Couldn't reach the storefront. Check your connection and try again.";
 }
+
+// "" means "search every registered source" — matches the backend's
+// `source: None` behavior in search_store (decision 0013).
+const ALL_SOURCES = "";
 
 export function StoreView() {
   const [query, setQuery] = useState("");
@@ -22,10 +26,18 @@ export function StoreView() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNsfw, setShowNsfw] = useState(false);
+  const [sources, setSources] = useState<StoreSourceInfo[]>([]);
+  const [sourceFilter, setSourceFilter] = useState(ALL_SOURCES);
 
   // Bumped on every new search so a slow page-1 response that arrives after
   // the user has already typed something else doesn't clobber newer results.
   const searchToken = useRef(0);
+
+  useEffect(() => {
+    invoke<StoreSourceInfo[]>("list_store_sources")
+      .then(setSources)
+      .catch((e) => console.error("failed to list store sources:", e));
+  }, []);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -39,6 +51,7 @@ export function StoreView() {
         query: trimmed || null,
         page: 1,
         includeNsfw: showNsfw,
+        source: sourceFilter || null,
       })
         .then((result) => {
           if (searchToken.current !== token) return;
@@ -56,7 +69,7 @@ export function StoreView() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [query, showNsfw]);
+  }, [query, showNsfw, sourceFilter]);
 
   async function loadMore() {
     const trimmed = query.trim();
@@ -68,6 +81,7 @@ export function StoreView() {
         query: trimmed || null,
         page: page + 1,
         includeNsfw: showNsfw,
+        source: sourceFilter || null,
       });
       if (searchToken.current !== token) return;
       setListings((prev) => [...prev, ...result.listings]);
@@ -83,17 +97,32 @@ export function StoreView() {
   return (
     <div className="store-view">
       <p className="store-disclosure">
-        Browsing GOG's DRM-free catalog. Purchases happen on gog.com — this
-        app never handles payment or fulfillment.
+        Browsing DRM-free catalogs from {sources.map((s) => s.display_name).join(", ") || "GOG"}.
+        Purchases happen on the storefront's own site — this app never
+        handles payment or fulfillment.
       </p>
       <div className="store-search-row">
         <input
           type="text"
           className="search-input store-search"
-          placeholder="Search GOG's DRM-free catalog..."
+          placeholder="Search the DRM-free catalog..."
           value={query}
           onChange={(e) => setQuery(e.currentTarget.value)}
         />
+        {sources.length > 1 && (
+          <select
+            className="store-source-filter"
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.currentTarget.value)}
+          >
+            <option value={ALL_SOURCES}>All sources</option>
+            {sources.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.display_name}
+              </option>
+            ))}
+          </select>
+        )}
         <label className="store-nsfw-toggle">
           <input
             type="checkbox"

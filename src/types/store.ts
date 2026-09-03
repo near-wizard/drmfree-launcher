@@ -11,3 +11,8 @@ export interface StoreSearchResult {
   page: number;
   total_pages: number;
 }
+
+export interface StoreSourceInfo {
+  id: string;
+  display_name: string;
+}

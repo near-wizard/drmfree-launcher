@@ -23,15 +23,16 @@ export function StoreCard({ listing }: { listing: StoreListing }) {
       )}
       <div className="store-card-body">
         <span className="store-card-title">{listing.title}</span>
+        <span className="store-card-source">{listing.store}</span>
         {listing.price && <span className="store-card-price">{listing.price}</span>}
       </div>
       <button
         onClick={() => {
-          track("store_buy_clicked");
+          track("store_buy_clicked", { store: listing.store });
           openUrl(listing.store_url);
         }}
       >
-        Buy on GOG
+        Buy on {listing.store}
       </button>
     </div>
   );

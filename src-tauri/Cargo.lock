@@ -874,6 +874,7 @@ dependencies = [
 name = "drmfree-launcher"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "dirs 5.0.1",
  "open",
  "reqwest 0.12.28",

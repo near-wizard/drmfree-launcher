@@ -1,12 +1,19 @@
-//! Stage 2a: DRM-free storefront discovery (see docs/roadmap.md and
+//! GOG storefront source (see docs/roadmap.md and
 //! docs/decisions/0005-drm-free-only-catalog.md). Read-only, link-out only —
 //! no fulfillment, no in-app checkout. Deliberately has zero shared code
 //! with `providers/` (the local-library scan): this module only talks to
 //! GOG's public catalog API, so it's a clean lift-and-shift into a separate
 //! service later if/when affiliate credentials or Stage 2b direct deals
 //! need a real backend (see docs/decisions/0001-open-core-split.md).
+//!
+//! The first (and, as of decision 0013, only real) implementation of the
+//! `StoreSource` trait — see `super` for the trait itself and how
+//! additional sources (itch.io, curated DRM-free Steam titles, direct
+//! deals) are expected to plug in alongside this one.
 
-use serde::{Deserialize, Serialize};
+use super::{StoreListing, StoreSearchResult, StoreSource};
+use async_trait::async_trait;
+use serde::Deserialize;
 
 const CATALOG_URL: &str = "https://catalog.gog.com/v1/catalog";
 
@@ -52,68 +59,59 @@ fn is_nsfw(product: &CatalogProduct) -> bool {
         .any(|t| NSFW_TAG_SLUGS.contains(&t.slug.as_str()))
 }
 
-/// A single storefront listing, already normalized for the UI. Every entry
-/// on screen must be clearly attributed to GOG per decision 0006's "Buy on
-/// GOG" labeling requirement — hence `store` being a fixed literal rather
-/// than something dynamic once more storefronts are added.
-#[derive(Debug, Serialize)]
-pub struct StoreListing {
-    pub title: String,
-    pub price: Option<String>,
-    pub cover_url: Option<String>,
-    pub store_url: String,
-    pub store: &'static str,
-}
+/// The GOG catalog source. Talks to GOG's public catalog API (no API key —
+/// the same endpoint gog.com's own storefront uses).
+pub struct GogStoreSource;
 
-/// One page of catalog results, plus enough pagination state for the UI to
-/// offer "load more" without re-deriving it from the listings themselves.
-#[derive(Debug, Serialize)]
-pub struct StoreSearchResult {
-    pub listings: Vec<StoreListing>,
-    pub page: u32,
-    pub total_pages: u32,
-}
-
-/// Fetches DRM-free listings from GOG's public catalog API (no API key —
-/// this is the same endpoint gog.com's own storefront uses). `query` filters
-/// by search term; `None`/empty returns trending titles. `page` is 1-based.
-/// `include_nsfw` defaults to `false` — GOG's `pages`/`total_pages` count is
-/// unfiltered, so a filtered page can come back smaller than `limit`.
-#[tauri::command]
-pub async fn search_store(
-    query: Option<String>,
-    page: Option<u32>,
-    include_nsfw: Option<bool>,
-) -> Result<StoreSearchResult, String> {
-    let page = page.unwrap_or(1).max(1);
-    let page_str = page.to_string();
-
-    let client = reqwest::Client::new();
-    let mut req = client.get(CATALOG_URL).query(&[
-        ("limit", "48"),
-        ("locale", "en-US"),
-        ("currency", "USD"),
-        ("page", page_str.as_str()),
-    ]);
-
-    match query.as_deref().map(str::trim) {
-        Some(q) if !q.is_empty() => req = req.query(&[("query", q)]),
-        _ => req = req.query(&[("order", "desc:trending")]),
+#[async_trait]
+impl StoreSource for GogStoreSource {
+    fn id(&self) -> &'static str {
+        "gog"
     }
 
-    let response = req
-        .send()
-        .await
-        .map_err(|e| format!("failed to reach GOG catalog: {e}"))?
-        .error_for_status()
-        .map_err(|e| format!("GOG catalog returned an error: {e}"))?;
+    fn display_name(&self) -> &'static str {
+        "GOG"
+    }
 
-    let parsed: CatalogResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("failed to parse GOG catalog response: {e}"))?;
+    /// `query` filters by search term; `None`/empty returns trending
+    /// titles. `page` is 1-based. `include_nsfw` defaults to `false` —
+    /// GOG's `pages`/`total_pages` count is unfiltered, so a filtered page
+    /// can come back smaller than `limit`.
+    async fn search(
+        &self,
+        query: Option<&str>,
+        page: u32,
+        include_nsfw: bool,
+    ) -> Result<StoreSearchResult, String> {
+        let page_str = page.to_string();
 
-    Ok(to_search_result(parsed, page, include_nsfw.unwrap_or(false)))
+        let client = reqwest::Client::new();
+        let mut req = client.get(CATALOG_URL).query(&[
+            ("limit", "48"),
+            ("locale", "en-US"),
+            ("currency", "USD"),
+            ("page", page_str.as_str()),
+        ]);
+
+        match query.map(str::trim) {
+            Some(q) if !q.is_empty() => req = req.query(&[("query", q)]),
+            _ => req = req.query(&[("order", "desc:trending")]),
+        }
+
+        let response = req
+            .send()
+            .await
+            .map_err(|e| format!("failed to reach GOG catalog: {e}"))?
+            .error_for_status()
+            .map_err(|e| format!("GOG catalog returned an error: {e}"))?;
+
+        let parsed: CatalogResponse = response
+            .json()
+            .await
+            .map_err(|e| format!("failed to parse GOG catalog response: {e}"))?;
+
+        Ok(to_search_result(parsed, page, include_nsfw))
+    }
 }
 
 fn to_search_result(parsed: CatalogResponse, page: u32, include_nsfw: bool) -> StoreSearchResult {
@@ -135,7 +133,7 @@ fn to_listing(p: CatalogProduct) -> StoreListing {
         price: p.price.and_then(|price| price.final_),
         cover_url: p.cover_horizontal,
         store_url: p.store_link,
-        store: "gog",
+        store: "GOG",
     }
 }
 
@@ -218,7 +216,7 @@ fn strip_trailing_year_suffix(title: &str) -> String {
 #[tauri::command]
 pub async fn find_gog_match(title: String) -> Result<Option<StoreListing>, String> {
     let query = clean_search_query(&title);
-    let result = search_store(Some(query), Some(1), Some(false)).await?;
+    let result = GogStoreSource.search(Some(&query), 1, false).await?;
     Ok(find_exact_match(result.listings, &title))
 }
 
@@ -292,7 +290,7 @@ mod tests {
             "https://www.gog.com/en/game/the_witcher_3_wild_hunt"
         );
         // Every listing must be attributed to GOG (decision 0006 labeling).
-        assert_eq!(witcher.store, "gog");
+        assert_eq!(witcher.store, "GOG");
     }
 
     #[test]

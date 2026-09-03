@@ -12,7 +12,8 @@ pub fn run() {
             commands::launch_game,
             providers::gog::get_gog_cover_art,
             store::search_store,
-            store::find_gog_match
+            store::list_store_sources,
+            store::gog::find_gog_match
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
