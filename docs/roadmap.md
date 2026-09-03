@@ -26,6 +26,9 @@ monetization, zero accounts.
       `decisions/0005-drm-free-only-catalog.md`), but broader library
       aggregation directly serves the "wean off DRM" loop (decision
       0006): can't prompt an upgrade for a DRM game you never detected.
+- [x] Humble Bundle provider (detect via the Humble App's own
+      `config.json` + direct exe launch) — Windows only for now, DRM-free
+      by storefront policy same as GOG. See `decisions/0020`.
 
 ## Stage 1 — Community & Governance (in progress)
 Publish as open source with a public handbook: this roadmap, a
