@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
@@ -27,12 +28,24 @@ function drmTooltip(drm: DrmRecord): string {
 }
 
 // Steam app IDs map directly to a public CDN header image; no API key needed.
-// Other providers don't expose an equivalent local-install-derivable image source.
-function coverArtUrl(game: Game): string | null {
-  if (game.provider === "steam") {
-    return `https://cdn.akamai.steamstatic.com/steam/apps/${game.id}/header.jpg`;
-  }
-  return null;
+function steamCoverArtUrl(game: Game): string | null {
+  if (game.provider !== "steam") return null;
+  return `https://cdn.akamai.steamstatic.com/steam/apps/${game.id}/header.jpg`;
+}
+
+// GOG has no equivalent deterministic-URL CDN, but the registry ID we
+// already read for gog-provider games is the same ID GOG's public
+// product API (api.gog.com/products/<id>) uses — an exact lookup, not
+// a name-matching guess. That's a network round-trip rather than a
+// plain <img src>, so results are cached across cards/re-renders
+// (module-level, not component state — cards remount on list re-sort).
+const gogCoverArtCache = new Map<string, string | null>();
+
+async function fetchGogCoverArt(id: string): Promise<string | null> {
+  if (gogCoverArtCache.has(id)) return gogCoverArtCache.get(id) ?? null;
+  const url = await invoke<string | null>("get_gog_cover_art", { id }).catch(() => null);
+  gogCoverArtCache.set(id, url);
+  return url;
 }
 
 interface GameCardProps {
@@ -44,7 +57,20 @@ interface GameCardProps {
 
 export function GameCard({ game, onLaunch, launching, providerLabels }: GameCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
-  const coverUrl = coverArtUrl(game);
+  const [gogCoverUrl, setGogCoverUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (game.provider !== "gog") return;
+    let cancelled = false;
+    fetchGogCoverArt(game.id).then((url) => {
+      if (!cancelled) setGogCoverUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.provider, game.id]);
+
+  const coverUrl = steamCoverArtUrl(game) ?? gogCoverUrl;
 
   return (
     <div className="game-card">

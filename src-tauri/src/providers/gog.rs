@@ -1,4 +1,5 @@
 use super::{DrmDeterminationMethod, DrmRecord, Game, GameProvider};
+use serde::Deserialize;
 
 /// Last date a maintainer confirmed GOG's storefront-wide DRM-free
 /// policy still holds. Fixed, not `now()` at scan time — a scan
@@ -41,6 +42,57 @@ impl GameProvider for GogProvider {
             return Err(format!("no executable recorded for {}", game.name));
         };
         open::that(exe).map_err(|e| format!("failed to launch {}: {e}", game.name))
+    }
+}
+
+#[derive(Debug, Deserialize)]
+struct GogProductImages {
+    background: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GogProductResponse {
+    images: Option<GogProductImages>,
+}
+
+/// Looks up cover art for a single GOG game by the numeric product ID
+/// already read from its registry key (`Game.id` for gog-provider
+/// games) — the same ID system GOG's public product API
+/// (`api.gog.com/products/<id>`, no key required) uses, so this is an
+/// exact lookup, not a name-matching guess. Returns `Ok(None)` rather
+/// than an error when the ID doesn't resolve (a 404) — a missing or
+/// renumbered ID isn't a failure worth surfacing, just "no art."
+#[tauri::command]
+pub async fn get_gog_cover_art(id: String) -> Result<Option<String>, String> {
+    let url = format!("https://api.gog.com/products/{id}");
+    let response = reqwest::get(&url)
+        .await
+        .map_err(|e| format!("failed to reach GOG product API: {e}"))?;
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let parsed: GogProductResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse GOG product response: {e}"))?;
+
+    Ok(parsed
+        .images
+        .and_then(|i| i.background)
+        .map(|bg| normalize_image_url(&bg)))
+}
+
+/// GOG's product API returns protocol-relative image URLs
+/// (`//images-N.gog-statics.com/...`), which a browser resolves fine
+/// inline but an explicit `https:` prefix is needed wherever the URL
+/// is used standalone (e.g. handed straight to an `<img src>` from
+/// Rust with no surrounding page to inherit a scheme from).
+fn normalize_image_url(url: &str) -> String {
+    match url.strip_prefix("//") {
+        Some(rest) => format!("https://{rest}"),
+        None => url.to_string(),
     }
 }
 
@@ -127,7 +179,47 @@ mod windows {
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_exe_path;
+    use super::{normalize_image_url, resolve_exe_path, GogProductResponse};
+
+    #[test]
+    fn normalize_image_url_adds_https_to_protocol_relative_urls() {
+        assert_eq!(
+            normalize_image_url("//images-4.gog-statics.com/cover.jpg"),
+            "https://images-4.gog-statics.com/cover.jpg"
+        );
+    }
+
+    #[test]
+    fn normalize_image_url_leaves_absolute_urls_unchanged() {
+        assert_eq!(
+            normalize_image_url("https://images-4.gog-statics.com/cover.jpg"),
+            "https://images-4.gog-statics.com/cover.jpg"
+        );
+    }
+
+    #[test]
+    fn parses_gog_product_response_background_image() {
+        let json = r#"{
+            "id": 1207664643,
+            "title": "The Witcher 3: Wild Hunt - Complete Edition",
+            "images": {
+                "background": "//images-4.gog-statics.com/witcher3.jpg",
+                "logo": "//images-1.gog-statics.com/witcher3_logo.jpg"
+            }
+        }"#;
+        let parsed: GogProductResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            parsed.images.unwrap().background.as_deref(),
+            Some("//images-4.gog-statics.com/witcher3.jpg")
+        );
+    }
+
+    #[test]
+    fn parses_gog_product_response_missing_images_as_none() {
+        let json = r#"{ "id": 1, "title": "No Images Field" }"#;
+        let parsed: GogProductResponse = serde_json::from_str(json).unwrap();
+        assert!(parsed.images.is_none());
+    }
 
     #[test]
     fn relative_exe_joins_onto_install_path() {

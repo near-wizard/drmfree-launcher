@@ -10,6 +10,7 @@ pub fn run() {
             commands::list_games,
             commands::list_providers,
             commands::launch_game,
+            providers::gog::get_gog_cover_art,
             store::search_store
         ])
         .run(tauri::generate_context!())
