@@ -2,7 +2,12 @@ import posthog from "posthog-js";
 
 const CONSENT_KEY = "drmfree-launcher:analytics-consent";
 const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY;
-const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com";
+// `||`, not `??` — an unset .env var still comes through as `""` (Vite
+// leaves the key defined but empty rather than undefined), which `??`
+// would let through as a real value: posthog-js then treats that
+// empty api_host as "same origin," silently POSTing events at the
+// app's own dev server (a 404, not an error you'd notice at a glance).
+const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
 
 export type ConsentStatus = "unset" | "granted" | "denied";
 
