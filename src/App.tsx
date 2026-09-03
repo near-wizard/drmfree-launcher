@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
+import { StoreView } from "./store/StoreView";
 import type { Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
 import "./App.css";
 
+type Tab = "library" | "store";
+
 function App() {
+  const [tab, setTab] = useState<Tab>("library");
   const [games, setGames] = useState<Game[]>([]);
   const [providerLabels, setProviderLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -62,45 +66,79 @@ function App() {
   return (
     <main className="container">
       <header className="app-header">
-        <h1>Your Library</h1>
-        <button onClick={refresh} disabled={loading}>
-          {loading ? "Scanning..." : "Rescan"}
-        </button>
+        <div>
+          <h1>{tab === "library" ? "Your Library" : "Store"}</h1>
+          {tab === "library" && games.length > 0 && (
+            <p className="header-subtitle">
+              {games.length} game{games.length === 1 ? "" : "s"} across{" "}
+              {availableProviders.length} source{availableProviders.length === 1 ? "" : "s"}
+            </p>
+          )}
+        </div>
+        {tab === "library" && (
+          <button onClick={refresh} disabled={loading}>
+            {loading && <span className="spinner" aria-hidden="true" />}
+            {loading ? "Scanning..." : "Rescan"}
+          </button>
+        )}
       </header>
 
-      {games.length > 0 && (
-        <div className="library-controls">
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search your library..."
-            value={query}
-            onChange={(e) => setQuery(e.currentTarget.value)}
-          />
-          <select
-            className="provider-filter"
-            value={providerFilter}
-            onChange={(e) => setProviderFilter(e.currentTarget.value)}
-          >
-            <option value="all">All sources ({games.length})</option>
-            {availableProviders.map((p) => (
-              <option key={p} value={p}>
-                {(providerLabels[p] ?? p) +
-                  ` (${games.filter((g) => g.provider === p).length})`}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      <nav className="tab-bar">
+        <button
+          className={`tab-button ${tab === "library" ? "tab-button-active" : ""}`}
+          onClick={() => setTab("library")}
+        >
+          Library
+        </button>
+        <button
+          className={`tab-button ${tab === "store" ? "tab-button-active" : ""}`}
+          onClick={() => setTab("store")}
+        >
+          Store
+        </button>
+      </nav>
 
-      {error && <p className="error-banner">{error}</p>}
-      <GameList
-        games={visibleGames}
-        onLaunch={launch}
-        launchingId={launchingId}
-        providerLabels={providerLabels}
-        hasAnyGames={games.length > 0}
-      />
+      {/* Both tabs stay mounted (hidden via CSS, not unmounted) so the
+          Store tab's search/pagination state survives switching to
+          Library and back. */}
+      <div hidden={tab !== "library"}>
+        {games.length > 0 && (
+          <div className="library-controls">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search your library..."
+              value={query}
+              onChange={(e) => setQuery(e.currentTarget.value)}
+            />
+            <select
+              className="provider-filter"
+              value={providerFilter}
+              onChange={(e) => setProviderFilter(e.currentTarget.value)}
+            >
+              <option value="all">All sources ({games.length})</option>
+              {availableProviders.map((p) => (
+                <option key={p} value={p}>
+                  {(providerLabels[p] ?? p) +
+                    ` (${games.filter((g) => g.provider === p).length})`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {error && <p className="error-banner">{error}</p>}
+        <GameList
+          games={visibleGames}
+          onLaunch={launch}
+          launchingId={launchingId}
+          providerLabels={providerLabels}
+          hasAnyGames={games.length > 0}
+        />
+      </div>
+      <div hidden={tab !== "store"}>
+        <StoreView />
+      </div>
     </main>
   );
 }
