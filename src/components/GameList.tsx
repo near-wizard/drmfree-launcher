@@ -59,7 +59,7 @@ export function GameList({
           key={`${game.provider}:${game.id}`}
           game={game}
           onLaunch={onLaunch}
-          launching={launchingId === game.id}
+          launching={launchingId === `${game.provider}:${game.id}`}
           providerLabels={providerLabels}
           cacheVersion={cacheVersion}
           onMatchChecked={onMatchChecked}

@@ -138,7 +138,10 @@ function App() {
   }
 
   async function launch(game: Game) {
-    setLaunchingId(game.id);
+    // Composite key, not just game.id — ids are only unique within a
+    // single provider (a Steam appid and a GOG product id can collide
+    // numerically), and GameList/lastPlayed already key this way.
+    setLaunchingId(`${game.provider}:${game.id}`);
     setError(null);
     track("game_launched", { provider: game.provider });
     try {
