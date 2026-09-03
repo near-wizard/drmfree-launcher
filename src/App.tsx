@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
+import { Mascot } from "./components/Mascot";
+import { PawIcon } from "./components/PawIcon";
 import { StoreView } from "./store/StoreView";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
@@ -267,18 +269,22 @@ function App() {
         </div>
       )}
       <header className="app-header">
-        <div>
-          <h1>{tab === "library" ? "Your Library" : "Store"}</h1>
-          {tab === "library" && games.length > 0 && (
-            <p className="header-subtitle">
-              {games.length} game{games.length === 1 ? "" : "s"} across{" "}
-              {availableProviders.length} source{availableProviders.length === 1 ? "" : "s"}
-            </p>
-          )}
+        <div className="app-header-title">
+          <Mascot />
+          <div>
+            <h1>{tab === "library" ? "Your Library" : "Store"}</h1>
+            {tab === "library" && games.length > 0 && (
+              <p className="header-subtitle">
+                {games.length} game{games.length === 1 ? "" : "s"} across{" "}
+                {availableProviders.length} source{availableProviders.length === 1 ? "" : "s"}
+              </p>
+            )}
+          </div>
         </div>
         {tab === "library" && (
           <button onClick={onRescanClick} disabled={loading}>
             {loading && <span className="spinner" aria-hidden="true" />}
+            {!loading && <PawIcon />}
             {loading ? "Scanning..." : "Rescan"}
           </button>
         )}

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { track } from "../lib/analytics";
+import { PawIcon } from "../components/PawIcon";
 import type { StoreListing } from "../types/store";
 
 export function StoreCard({ listing }: { listing: StoreListing }) {
@@ -32,6 +33,7 @@ export function StoreCard({ listing }: { listing: StoreListing }) {
           openUrl(listing.store_url);
         }}
       >
+        <PawIcon />
         Buy on {listing.store}
       </button>
     </div>

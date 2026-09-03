@@ -4,6 +4,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch } from "../lib/gogUpgradeCheck";
 import { track } from "../lib/analytics";
+import { PawIcon } from "./PawIcon";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
@@ -119,6 +120,7 @@ function GogUpgradeCheck({ game, onChecked }: { game: Game; onChecked?: () => vo
               openUrl(state.storeUrl);
             }}
           >
+            <PawIcon />
             Buy DRM-free on GOG
           </button>
           <button className="upgrade-recheck-button" onClick={recheck} title="Check again">
@@ -206,6 +208,7 @@ export function GameCard({
           <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
         )}
         <button disabled={launching} onClick={() => onLaunch(game)}>
+          {!launching && <PawIcon />}
           {launching ? "Launching..." : "Play"}
         </button>
       </div>
