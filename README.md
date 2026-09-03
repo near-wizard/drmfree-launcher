@@ -12,6 +12,13 @@ An open-core, DRM-free-friendly game launcher.
   and [`docs/decisions/0005-drm-free-only-catalog.md`](docs/decisions/0005-drm-free-only-catalog.md)
   for why the Store is scoped this way.
 
+## Download
+
+Prebuilt installers (Windows MSI/NSIS, macOS, Linux) are published on
+the [Releases page](https://github.com/near-wizard/drmfree-launcher/releases)
+via `.github/workflows/release.yml`, built from source on tag push. No
+auto-updater yet — check the Releases page for new versions.
+
 ## How detection works
 
 Each storefront is a `GameProvider` (`src-tauri/src/providers/`). A
