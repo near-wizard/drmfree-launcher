@@ -5,6 +5,8 @@ import { StoreView } from "./store/StoreView";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
 import { checkGogMatch } from "./lib/gogUpgradeCheck";
+import { buildReportIssueUrl } from "./lib/reportIssue";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DrmStatus, Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
 import "./App.css";
@@ -159,6 +161,10 @@ function App() {
     if (top && launchingId === null) launch(top);
   }
 
+  async function reportIssue() {
+    openUrl(await buildReportIssueUrl());
+  }
+
   return (
     <main className="container">
       <header className="app-header">
@@ -180,17 +186,22 @@ function App() {
       </header>
 
       <nav className="tab-bar">
-        <button
-          className={`tab-button ${tab === "library" ? "tab-button-active" : ""}`}
-          onClick={() => setTab("library")}
-        >
-          Library
-        </button>
-        <button
-          className={`tab-button ${tab === "store" ? "tab-button-active" : ""}`}
-          onClick={() => setTab("store")}
-        >
-          Store
+        <div className="tab-bar-tabs">
+          <button
+            className={`tab-button ${tab === "library" ? "tab-button-active" : ""}`}
+            onClick={() => setTab("library")}
+          >
+            Library
+          </button>
+          <button
+            className={`tab-button ${tab === "store" ? "tab-button-active" : ""}`}
+            onClick={() => setTab("store")}
+          >
+            Store
+          </button>
+        </div>
+        <button className="report-issue-button" onClick={reportIssue}>
+          Request a change
         </button>
       </nav>
 

@@ -1,0 +1,40 @@
+name: Request a change
+description: Report a bug, request a feature, or suggest a change to DRM-Free Launcher.
+title: "[Change request] "
+labels: ["change-request"]
+body:
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Bug
+        - Feature request
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What's wrong, or what do you want to change?
+      placeholder: One or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behavior
+      description: For a bug — what did you expect, and what actually happened? For a feature request, what would the new behavior look like?
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: App version / OS / other context
+      description: Pre-filled from the app when opened via the "Request a change" button — edit or add to this if useful.
+    validations:
+      required: false

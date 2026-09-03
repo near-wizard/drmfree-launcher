@@ -96,9 +96,31 @@ body {
 
 .tab-bar {
   display: flex;
-  gap: 0.25rem;
+  align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid var(--border);
   margin-bottom: 1.25rem;
+}
+
+.tab-bar-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.report-issue-button {
+  background: none;
+  box-shadow: none;
+  border: none;
+  padding: 0.3em 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transform: none;
+}
+
+.report-issue-button:hover:not(:disabled) {
+  background: none;
+  color: var(--accent);
 }
 
 .tab-button {
