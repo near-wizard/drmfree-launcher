@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { StoreListing, StoreSearchResult, StoreSourceInfo } from "../types/store";
 import { StoreCard } from "./StoreCard";
@@ -17,6 +17,19 @@ function friendlyStoreError(e: unknown): string {
 // `source: None` behavior in search_store (decision 0013).
 const ALL_SOURCES = "";
 
+// Warms the browser's HTTP cache for a page of cover art before the
+// user ever sees it, so by the time loadMore() actually renders these
+// cards, the <img> tags resolve instantly instead of popping in one
+// by one. Plain Image() objects, never attached to the DOM — this is
+// a cache-warming trick, not a preview.
+function preloadCoverArt(listings: StoreListing[]) {
+  for (const listing of listings) {
+    if (!listing.cover_url) continue;
+    const img = new Image();
+    img.src = listing.cover_url;
+  }
+}
+
 export function StoreView() {
   const [query, setQuery] = useState("");
   const [listings, setListings] = useState<StoreListing[]>([]);
@@ -32,6 +45,36 @@ export function StoreView() {
   // Bumped on every new search so a slow page-1 response that arrives after
   // the user has already typed something else doesn't clobber newer results.
   const searchToken = useRef(0);
+
+  // The next page's data + warmed image cache, fetched in the
+  // background one page ahead of what's on screen. Keyed by
+  // searchToken so a stale prefetch from before a query/filter change
+  // never gets used. loadMore() consumes this instead of hitting the
+  // network when it's ready — that's the actual "instant" part.
+  const prefetch = useRef<{ token: number; page: number; result: StoreSearchResult } | null>(null);
+
+  const prefetchNextPage = useCallback(
+    (afterPage: number, currentTotalPages: number, token: number) => {
+      if (afterPage >= currentTotalPages) return;
+      const trimmed = query.trim();
+      invoke<StoreSearchResult>("search_store", {
+        query: trimmed || null,
+        page: afterPage + 1,
+        includeNsfw: showNsfw,
+        source: sourceFilter || null,
+      })
+        .then((result) => {
+          if (searchToken.current !== token) return;
+          preloadCoverArt(result.listings);
+          prefetch.current = { token, page: result.page, result };
+        })
+        .catch(() => {
+          // Best-effort only — loadMore() falls back to a normal
+          // network request when there's nothing prefetched.
+        });
+    },
+    [query, showNsfw, sourceFilter],
+  );
 
   useEffect(() => {
     invoke<StoreSourceInfo[]>("list_store_sources")
@@ -58,6 +101,8 @@ export function StoreView() {
           setListings(result.listings);
           setPage(result.page);
           setTotalPages(result.total_pages);
+          prefetch.current = null;
+          prefetchNextPage(result.page, result.total_pages, token);
         })
         .catch((e) => {
           if (searchToken.current !== token) return;
@@ -69,12 +114,27 @@ export function StoreView() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [query, showNsfw, sourceFilter]);
+  }, [query, showNsfw, sourceFilter, prefetchNextPage]);
 
   async function loadMore() {
     const trimmed = query.trim();
     const token = searchToken.current;
     track("store_load_more_clicked");
+
+    // The common case: the next page was already fetched (and its
+    // cover art already warmed in the browser's HTTP cache) while the
+    // user was looking at the current page. Apply it immediately, no
+    // spinner, no network round-trip.
+    const cached = prefetch.current;
+    if (cached && cached.token === token && cached.page === page + 1) {
+      prefetch.current = null;
+      setListings((prev) => [...prev, ...cached.result.listings]);
+      setPage(cached.result.page);
+      setTotalPages(cached.result.total_pages);
+      prefetchNextPage(cached.result.page, cached.result.total_pages, token);
+      return;
+    }
+
     setLoadingMore(true);
     try {
       const result = await invoke<StoreSearchResult>("search_store", {
@@ -87,6 +147,7 @@ export function StoreView() {
       setListings((prev) => [...prev, ...result.listings]);
       setPage(result.page);
       setTotalPages(result.total_pages);
+      prefetchNextPage(result.page, result.total_pages, token);
     } catch (e) {
       if (searchToken.current === token) setError(friendlyStoreError(e));
     } finally {
