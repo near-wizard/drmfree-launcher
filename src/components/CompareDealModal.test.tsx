@@ -37,8 +37,11 @@ describe("CompareDealModal", () => {
   });
 
   it("calls onClose when the overlay is clicked", async () => {
+    // Portaled to document.body (see CompareDealModal.tsx) — not a
+    // descendant of RTL's own render container, so query the document
+    // directly rather than the container returned by render().
     const onClose = vi.fn();
-    const { container } = render(
+    render(
       <CompareDealModal
         gameName="Risk of Rain"
         lockedProviderId="steam"
@@ -47,7 +50,7 @@ describe("CompareDealModal", () => {
         onClose={onClose}
       />,
     );
-    const overlay = container.querySelector(".compare-deal-overlay")!;
+    const overlay = document.querySelector(".compare-deal-overlay")!;
     await userEvent.click(overlay);
     expect(onClose).toHaveBeenCalled();
   });

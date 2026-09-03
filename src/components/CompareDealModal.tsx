@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { track } from "../lib/analytics";
 import { PawIcon } from "./PawIcon";
@@ -62,7 +63,15 @@ export function CompareDealModal({
 
   const lockedTraits = LOCKED_TRAITS[lockedProviderId] ?? LOCKED_TRAITS_GENERIC;
 
-  return (
+  // Portaled to document.body rather than rendered in place: this can
+  // be opened from inside a GameCard, whose :hover transform (still
+  // active — the mouse is still over the card when its own Compare
+  // button is clicked) would otherwise become this fixed-position
+  // overlay's containing block and clip it to the card's own small
+  // bounds instead of the full window. Found live: the modal rendered
+  // fine from WishlistView (siblings, not nested in a hovered card)
+  // but was cut off when opened from the library.
+  return createPortal(
     <div className="compare-deal-overlay" onClick={onClose}>
       <div
         className="compare-deal-panel"
@@ -104,6 +113,7 @@ export function CompareDealModal({
           Buy DRM-free on GOG
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
