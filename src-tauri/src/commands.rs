@@ -76,3 +76,73 @@ pub fn open_install_folder(provider: String, id: String) -> Result<(), String> {
 
     open::that(&install_dir).map_err(|e| format!("failed to open {install_dir}: {e}"))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // list_games/list_providers have no prior coverage at all: this
+    // module is the entire Tauri command surface, so a regression here
+    // (e.g. a provider panicking mid-scan, or all_providers() silently
+    // dropping an entry) would break the app with nothing catching it
+    // first. These don't assert on *what* games are found (that's
+    // machine-dependent and each provider's own tests cover detection
+    // logic already) — just that the aggregation/lookup plumbing itself
+    // behaves.
+
+    #[test]
+    fn list_providers_includes_every_registered_provider() {
+        let providers = list_providers();
+        let ids: Vec<&str> = providers.iter().map(|p| p.id).collect();
+        assert!(ids.contains(&"steam"));
+        assert!(ids.contains(&"gog"));
+        assert!(ids.contains(&"epic"));
+        // Every provider must carry a non-empty display name — the UI
+        // falls back to the raw id otherwise, which would look broken.
+        assert!(providers.iter().all(|p| !p.display_name.is_empty()));
+    }
+
+    #[test]
+    fn list_games_does_not_panic_and_only_returns_known_providers() {
+        // Can't assert a specific game list (machine-dependent), but it
+        // must never panic, and every returned game's provider id must
+        // be one all_providers() actually knows about.
+        let known: Vec<&str> = all_providers().iter().map(|p| p.id()).collect();
+        let games = list_games();
+        assert!(games.iter().all(|g| known.contains(&g.provider)));
+    }
+
+    #[test]
+    fn launch_game_rejects_unknown_provider() {
+        let result = launch_game("not-a-real-provider".to_string(), "123".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown provider"));
+    }
+
+    #[test]
+    fn launch_game_rejects_id_not_currently_installed() {
+        // "steam" is a real provider id, but this id will never match a
+        // real detected game — exercises the re-detect-don't-trust-the-
+        // payload path (the whole reason this command re-scans instead
+        // of launching whatever id it's handed) without depending on
+        // Steam actually being installed on the machine running tests.
+        let result = launch_game("steam".to_string(), "definitely-not-installed-xyz".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn open_install_folder_rejects_unknown_provider() {
+        let result = open_install_folder("not-a-real-provider".to_string(), "123".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown provider"));
+    }
+
+    #[test]
+    fn open_install_folder_rejects_id_not_currently_installed() {
+        let result =
+            open_install_folder("gog".to_string(), "definitely-not-installed-xyz".to_string());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+}
