@@ -27,9 +27,10 @@ npm install
 npm run tauri dev
 ```
 
-Requires Rust (stable toolchain) and Node 20+. `cargo check` and
-`cargo test` should pass from `src-tauri/` before opening a PR; `npm
-run build` should pass from the repo root.
+Requires Rust (stable toolchain) and Node 20+. Before opening a PR,
+from `src-tauri/`: `cargo check`, `cargo clippy --all-targets -- -D
+warnings`, and `cargo test` should all pass. From the repo root: `npm
+run lint` and `npm run build` should pass. CI runs all of these.
 
 ## Adding a new `GameProvider`
 
@@ -57,11 +58,26 @@ A provider that can't detect anything on the current OS should return
 an empty `Vec`, not an error — a storefront simply not being installed
 is a normal outcome.
 
+## Adding to the Store tab
+
+`src-tauri/src/store.rs` and `src/store/` (Stage 2a) are deliberately
+isolated from `providers/` — no shared code — so they're a clean
+lift-and-shift into a separate service later if affiliate credentials
+or Stage 2b direct deals need a real backend (`0001-open-core-split.md`).
+
+Before proposing a new storefront here, read
+`0005-drm-free-only-catalog.md`: eligibility is gated on DRM-free
+status, checked per-storefront (whole-storefront if it's DRM-free by
+policy, per-title otherwise), not just "runs an affiliate program."
+See `0010-itchio-evaluation.md` for a worked example of a storefront
+that was evaluated and didn't qualify yet, and why.
+
 ## Code style
 
-No enforced linter yet; match the surrounding file. Keep comments to
-the *why*, not the *what* — see the existing provider files for the
-tone this project uses.
+ESLint (frontend, `npm run lint`) and `clippy` (Rust) are enforced in
+CI — see "Dev setup" above. Beyond what the linter catches, match the
+surrounding file. Keep comments to the *why*, not the *what* — see the
+existing provider files for the tone this project uses.
 
 ## PRs
 
