@@ -1,11 +1,11 @@
 const STORAGE_KEY = "drmfree-launcher:last-tab";
 
-export type Tab = "library" | "store";
+export type Tab = "library" | "store" | "wishlist";
 
 export function loadLastTab(): Tab {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw === "store" ? "store" : "library";
+    return raw === "store" || raw === "wishlist" ? raw : "library";
   } catch {
     return "library";
   }

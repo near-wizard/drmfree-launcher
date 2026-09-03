@@ -68,6 +68,11 @@ see `decisions/0005-drm-free-only-catalog.md`.
       below; a majority-vote community signal is a real but different
       thing, and only kicks in when there's no other determination at
       all.
+- [x] Library-wide "N of M games are DRM-free" progress dashboard, a
+      "compare the deal" side-by-side view (locked platform vs. GOG),
+      and a Steam wishlist cross-reference against GOG's catalog — all
+      surfacing the upgrade-loop argument earlier and more visibly than
+      a single per-game badge. See `decisions/0018`.
 
 Core loop this unlocks: keep launching your existing (often
 DRM-locked) library, but surface a "Buy DRM-free version" prompt on

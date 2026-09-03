@@ -46,6 +46,12 @@ vi.mock("./store/StoreView", () => ({
   StoreView: () => <div data-testid="store-view-stub">Store stub</div>,
 }));
 
+// Same rationale as the StoreView stub above — WishlistView has its
+// own test surface (WishlistView.test.tsx).
+vi.mock("./wishlist/WishlistView", () => ({
+  WishlistView: () => <div data-testid="wishlist-view-stub">Wishlist stub</div>,
+}));
+
 function makeGame(overrides: Partial<Game> = {}): Game {
   return {
     id: "1",

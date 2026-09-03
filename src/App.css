@@ -1026,6 +1026,197 @@ button:disabled {
   margin-right: 3px;
 }
 
+/* ---------- Freedom dashboard: library-wide DRM-free progress ---------- */
+
+.freedom-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--iron-mid);
+  box-shadow: var(--shadow), 0 0 0 1px var(--copper-dark);
+}
+
+.freedom-dashboard-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.freedom-dashboard-label strong {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.freedom-dashboard-pct {
+  font-weight: 700;
+  color: var(--glow-green);
+  text-shadow: 0 0 8px rgba(63, 227, 116, 0.5);
+}
+
+.freedom-dashboard-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--iron);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) inset;
+  overflow: hidden;
+}
+
+.freedom-dashboard-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--glow-green-dark) 0%, var(--glow-green) 100%);
+  box-shadow: 0 0 6px rgba(63, 227, 116, 0.6);
+  transition: width 0.4s ease;
+}
+
+/* ---------- Wishlist: cross-reference against GOG ---------- */
+
+.wishlist-form {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.wishlist-id-input {
+  flex: 1;
+}
+
+.wishlist-cap-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: -0.5rem 0 1rem;
+}
+
+.wishlist-card-status {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  padding-bottom: 0.75rem;
+}
+
+.wishlist-card-status .spinner {
+  border-color: rgba(26, 23, 18, 0.25);
+  border-top-color: var(--text-muted);
+}
+
+.wishlist-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0 0.8rem 0.8rem;
+}
+
+button.upgrade-compare-button {
+  font-size: 0.72rem;
+  padding: 0.35em 0.8em;
+  background: linear-gradient(180deg, #5c5040 0%, #35301f 100%);
+  color: var(--paper-dim);
+  border-color: var(--brass-dark);
+}
+
+/* ---------- Compare the deal: locked vs. DRM-free side by side ---------- */
+
+.compare-deal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 8, 5, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.compare-deal-panel {
+  position: relative;
+  width: min(560px, 90vw);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--paper) 0%, #ddd0af 100%);
+  box-shadow: var(--shadow-hover), 0 0 0 1px var(--copper-dark);
+  color: var(--ink);
+}
+
+.compare-deal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: #55575b;
+  background: linear-gradient(180deg, #fff 0%, #d3d3d0 100%);
+  border-color: #a9a9a6;
+  text-shadow: none;
+}
+
+.compare-deal-title {
+  font-family: Georgia, "Times New Roman", serif;
+  margin: 0 2rem 1rem 0;
+  font-size: 1.15rem;
+}
+
+.compare-deal-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.compare-deal-column {
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius);
+}
+
+.compare-deal-column h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.compare-deal-column ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.compare-deal-column-locked {
+  background: rgba(227, 90, 43, 0.08);
+  box-shadow: 0 0 0 1px rgba(227, 90, 43, 0.35);
+}
+
+.compare-deal-column-locked h3 {
+  color: var(--rust);
+}
+
+.compare-deal-column-free {
+  background: rgba(63, 227, 116, 0.08);
+  box-shadow: 0 0 0 1px rgba(63, 227, 116, 0.35);
+}
+
+.compare-deal-column-free h3 {
+  color: var(--glow-green-dark);
+}
+
+.compare-deal-buy-button {
+  width: 100%;
+  justify-content: center;
+}
+
 /* ---------- Mascot: raccoon-turtle, small whimsy touch in the header ---------- */
 
 .mascot {

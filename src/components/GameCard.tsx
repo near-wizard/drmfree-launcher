@@ -8,6 +8,7 @@ import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { track } from "../lib/analytics";
 import { PawIcon } from "./PawIcon";
 import { CommunityReport } from "./CommunityReport";
+import { CompareDealModal } from "./CompareDealModal";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 import type { CommunityConsensus } from "../types/community";
 
@@ -95,8 +96,17 @@ function initialUpgradeState(game: Game): UpgradeCheckState {
     : { status: "not-found" };
 }
 
-function GogUpgradeCheck({ game, onChecked }: { game: Game; onChecked?: () => void }) {
+function GogUpgradeCheck({
+  game,
+  providerLabel,
+  onChecked,
+}: {
+  game: Game;
+  providerLabel: string;
+  onChecked?: () => void;
+}) {
   const [state, setState] = useState<UpgradeCheckState>(() => initialUpgradeState(game));
+  const [compareOpen, setCompareOpen] = useState(false);
 
   async function check() {
     setState({ status: "checking" });
@@ -144,9 +154,21 @@ function GogUpgradeCheck({ game, onChecked }: { game: Game; onChecked?: () => vo
             <PawIcon />
             Buy DRM-free on GOG
           </button>
+          <button className="upgrade-compare-button" onClick={() => setCompareOpen(true)}>
+            Compare
+          </button>
           <button className="upgrade-recheck-button" onClick={recheck} title="Check again">
             ↻
           </button>
+          {compareOpen && (
+            <CompareDealModal
+              gameName={game.name}
+              lockedProviderId={game.provider}
+              lockedProviderLabel={providerLabel}
+              gogStoreUrl={state.storeUrl}
+              onClose={() => setCompareOpen(false)}
+            />
+          )}
         </span>
       );
     case "not-found":
@@ -266,7 +288,12 @@ export function GameCard({
           <CommunityReport game={game} consensus={consensus} onReported={setConsensus} />
         )}
         {game.provider !== "gog" && (
-          <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
+          <GogUpgradeCheck
+            key={cacheVersion}
+            game={game}
+            providerLabel={providerLabels[game.provider] ?? game.provider}
+            onChecked={onMatchChecked}
+          />
         )}
         {game.install_dir && (
           <button

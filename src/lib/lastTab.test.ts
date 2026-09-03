@@ -15,6 +15,11 @@ describe("lastTab", () => {
     expect(loadLastTab()).toBe("store");
   });
 
+  it("persists and reloads the wishlist tab", () => {
+    saveLastTab("wishlist");
+    expect(loadLastTab()).toBe("wishlist");
+  });
+
   it("falls back to library for any unrecognized stored value", () => {
     localStorage.setItem("drmfree-launcher:last-tab", "garbage");
     expect(loadLastTab()).toBe("library");

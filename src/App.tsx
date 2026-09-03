@@ -4,6 +4,8 @@ import { GameList } from "./components/GameList";
 import { Mascot } from "./components/Mascot";
 import { PawIcon } from "./components/PawIcon";
 import { StoreView } from "./store/StoreView";
+import { WishlistView } from "./wishlist/WishlistView";
+import { FreedomDashboard } from "./components/FreedomDashboard";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
 import { checkGogMatch } from "./lib/gogUpgradeCheck";
@@ -308,7 +310,7 @@ function App() {
         <div className="app-header-title">
           <Mascot />
           <div>
-            <h1>{tab === "library" ? "Your Library" : "Store"}</h1>
+            <h1>{tab === "library" ? "Your Library" : tab === "store" ? "Store" : "Wishlist"}</h1>
             {tab === "library" && games.length > 0 && (
               <p className="header-subtitle">
                 {games.length} game{games.length === 1 ? "" : "s"} across{" "}
@@ -340,6 +342,12 @@ function App() {
           >
             Store
           </button>
+          <button
+            className={`tab-button ${tab === "wishlist" ? "tab-button-active" : ""}`}
+            onClick={() => setTab("wishlist")}
+          >
+            Wishlist
+          </button>
         </div>
         <div className="tab-bar-links">
           <button
@@ -355,10 +363,11 @@ function App() {
         </div>
       </nav>
 
-      {/* Both tabs stay mounted (hidden via CSS, not unmounted) so the
-          Store tab's search/pagination state survives switching to
-          Library and back. */}
+      {/* All three tabs stay mounted (hidden via CSS, not unmounted) so
+          the Store tab's search/pagination state and the Wishlist
+          tab's loaded results survive switching to Library and back. */}
       <div hidden={tab !== "library"}>
+        <FreedomDashboard games={games} />
         {games.length > 0 && (
           <div className="library-controls">
             <input
@@ -461,6 +470,9 @@ function App() {
       </div>
       <div hidden={tab !== "store"}>
         <StoreView />
+      </div>
+      <div hidden={tab !== "wishlist"}>
+        <WishlistView />
       </div>
     </main>
   );
