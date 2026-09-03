@@ -20,7 +20,12 @@ vi.mock("@tauri-apps/api/app", () => ({ getVersion: vi.fn().mockResolvedValue("0
 // stays genuine), so it's posthog-js itself that needs stubbing —
 // same approach as analytics.test.ts.
 vi.mock("posthog-js", () => ({
-  default: { init: vi.fn(), capture: vi.fn(), opt_out_capturing: vi.fn() },
+  default: {
+    init: vi.fn(),
+    capture: vi.fn(),
+    opt_in_capturing: vi.fn(),
+    opt_out_capturing: vi.fn(),
+  },
 }));
 
 // checkForUpdate pulls in @tauri-apps/plugin-updater and

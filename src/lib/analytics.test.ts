@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 const posthogMock = vi.hoisted(() => ({
   init: vi.fn(),
   capture: vi.fn(),
+  opt_in_capturing: vi.fn(),
   opt_out_capturing: vi.fn(),
 }));
 vi.mock("posthog-js", () => ({ default: posthogMock }));
@@ -21,6 +22,7 @@ describe("analytics", () => {
     localStorage.clear();
     posthogMock.init.mockClear();
     posthogMock.capture.mockClear();
+    posthogMock.opt_in_capturing.mockClear();
     posthogMock.opt_out_capturing.mockClear();
   });
 

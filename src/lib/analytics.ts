@@ -33,6 +33,11 @@ function setConsentStatus(status: "granted" | "denied") {
 export function grantConsent() {
   setConsentStatus("granted");
   initPostHog();
+  // PostHog persists opt-out state in its own localStorage entry,
+  // independent of our consent key above — if this install was ever
+  // denied before, posthog-js would otherwise stay silently opted out
+  // even after re-granting here, since init() alone doesn't clear it.
+  if (initialized) posthog.opt_in_capturing();
 }
 
 export function denyConsent() {
