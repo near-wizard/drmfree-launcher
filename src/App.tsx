@@ -7,16 +7,20 @@ import { getCachedMatch } from "./lib/gogMatchCache";
 import { checkGogMatch } from "./lib/gogUpgradeCheck";
 import { buildReportIssueUrl } from "./lib/reportIssue";
 import { checkForUpdate, RELEASES_PAGE_URL, type UpdateCheckResult } from "./lib/checkForUpdate";
+import { loadLastTab, saveLastTab, type Tab } from "./lib/lastTab";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DrmStatus, Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
 import "./App.css";
 
-type Tab = "library" | "store";
 type SortBy = "name" | "provider" | "recent";
 
 function App() {
-  const [tab, setTab] = useState<Tab>("library");
+  const [tab, setTabState] = useState<Tab>(() => loadLastTab());
+  function setTab(next: Tab) {
+    setTabState(next);
+    saveLastTab(next);
+  }
   const [games, setGames] = useState<Game[]>([]);
   const [providerLabels, setProviderLabels] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
