@@ -1,23 +1,54 @@
 # DRM-Free Launcher
 
-An open-core, DRM-free-friendly game launcher.
+**One library for every launcher you already use — and a clear path off DRM when there's a DRM-free version waiting.**
 
-- **Library** (Stage 0) — a unified view that detects games installed
-  via Steam, GOG, and Epic on your machine and launches them. No
-  accounts, no ownership APIs — see "How detection works" below.
-- **Store** (Stage 2a, in progress) — a read-only, link-out-only
-  browser for GOG's DRM-free catalog. No accounts, no payment or
-  fulfillment in the app; purchases happen on gog.com. See
-  [`docs/decisions/0001-open-core-split.md`](docs/decisions/0001-open-core-split.md)
-  and [`docs/decisions/0005-drm-free-only-catalog.md`](docs/decisions/0005-drm-free-only-catalog.md)
-  for why the Store is scoped this way.
+[![CI](https://github.com/near-wizard/drmfree-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/near-wizard/drmfree-launcher/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/near-wizard/drmfree-launcher?include_prereleases)](https://github.com/near-wizard/drmfree-launcher/releases)
+[![License: MIT](https://img.shields.io/github/license/near-wizard/drmfree-launcher)](LICENSE)
+
+DRM-Free Launcher detects the games you already have installed via
+Steam, GOG, and Epic, and puts them in one list you can launch from
+directly — no new accounts, no re-linking your libraries, nothing
+sent to us. Then it does something none of those launchers will: for
+any game in your library, it checks GOG's DRM-free catalog for an
+equivalent and gives you a one-click path to buy it there instead —
+so going DRM-free is a choice you can make one game at a time, not an
+all-or-nothing migration.
+
+<p align="center">
+  <img src="docs/screenshots/store.png" alt="DRM-Free Launcher — Store tab browsing GOG's DRM-free catalog" width="720">
+</p>
 
 ## Download
 
-Prebuilt installers (Windows MSI/NSIS, macOS, Linux) are published on
-the [Releases page](https://github.com/near-wizard/drmfree-launcher/releases)
-via `.github/workflows/release.yml`, built from source on tag push. No
-auto-updater yet — check the Releases page for new versions.
+Grab the latest installer from the
+**[Releases page](https://github.com/near-wizard/drmfree-launcher/releases)**
+— Windows (MSI/NSIS) and Linux builds. No account, no telemetry, no
+auto-updater yet (check back on Releases for new versions).
+
+## What it does
+
+- **Unified library.** Steam, GOG, and Epic games detected from local
+  install data and launched with one click — each through that
+  storefront's own native handoff (Steam protocol URI, direct
+  executable for GOG, Epic protocol URI). Search, filter by source or
+  DRM status, sort by name/source/recently played.
+- **DRM-free upgrade finder.** Check any installed game against GOG's
+  catalog — an exact-title match, not a fuzzy guess, so you won't get
+  a false "yes" on a demo or the wrong edition. Match once, and it's
+  remembered; check your whole library in one pass if you'd rather not
+  click through titles one at a time.
+- **Store tab.** Browse and search GOG's DRM-free catalog directly,
+  with an NSFW filter on by default. Buying happens on gog.com — this
+  app never touches payment or fulfillment.
+- **No accounts, no tracking.** Detection reads local install
+  manifests and registry keys only; it never calls a storefront's web
+  API to ask what you own. See
+  [`docs/decisions/0002-local-scan-not-ownership-api.md`](docs/decisions/0002-local-scan-not-ownership-api.md).
+
+Something missing, or found a bug? Use the **Request a change** link
+in the app — it opens a pre-filled GitHub issue with your app version
+already attached.
 
 ## How detection works
 
