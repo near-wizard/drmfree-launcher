@@ -378,6 +378,7 @@ button:disabled {
 .upgrade-check-status {
   display: flex;
   align-items: center;
+  gap: 0.4rem;
   font-size: 0.8rem;
   color: var(--text-muted);
   white-space: nowrap;
@@ -386,6 +387,21 @@ button:disabled {
 .upgrade-check-status .spinner {
   border-color: rgba(107, 114, 128, 0.3);
   border-top-color: var(--text-muted);
+}
+
+.game-card button.upgrade-recheck-button {
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0.3em 0.5em;
+  color: var(--text-muted);
+  border-color: transparent;
+  box-shadow: none;
+  background: none;
+}
+
+.game-card button.upgrade-recheck-button:hover:not(:disabled) {
+  background-color: var(--surface-hover);
+  color: var(--text);
 }
 
 .game-card button.upgrade-found-button {

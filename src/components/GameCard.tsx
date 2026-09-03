@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { clearCachedMatch, getCachedMatch, recordMatch } from "../lib/gogMatchCache";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 import type { StoreListing } from "../types/store";
 
@@ -55,23 +56,47 @@ async function fetchGogCoverArt(id: string): Promise<string | null> {
 // outbound requests on every launch for a large library. This is the
 // first consumer of decision 0006's "buy DRM-free version" loop, kept
 // deliberately opt-in per game (decision 0002's non-invasive spirit).
+// Results persist in localStorage (gogMatchCache) so a check made in
+// one session doesn't need repeating in the next.
 type UpgradeCheckState =
   | { status: "idle" }
   | { status: "checking" }
   | { status: "found"; storeUrl: string }
   | { status: "not-found" };
 
+function initialUpgradeState(game: Game): UpgradeCheckState {
+  const cached = getCachedMatch(game.provider, game.id);
+  if (!cached) return { status: "idle" };
+  return cached.status === "found"
+    ? { status: "found", storeUrl: cached.storeUrl! }
+    : { status: "not-found" };
+}
+
 function GogUpgradeCheck({ game }: { game: Game }) {
-  const [state, setState] = useState<UpgradeCheckState>({ status: "idle" });
+  const [state, setState] = useState<UpgradeCheckState>(() => initialUpgradeState(game));
 
   async function check() {
     setState({ status: "checking" });
     try {
       const match = await invoke<StoreListing | null>("find_gog_match", { title: game.name });
-      setState(match ? { status: "found", storeUrl: match.store_url } : { status: "not-found" });
+      if (match) {
+        recordMatch(game.provider, game.id, { status: "found", storeUrl: match.store_url });
+        setState({ status: "found", storeUrl: match.store_url });
+      } else {
+        recordMatch(game.provider, game.id, { status: "not-found" });
+        setState({ status: "not-found" });
+      }
     } catch {
-      setState({ status: "not-found" });
+      // A network/API failure isn't the same as a confirmed "no match" —
+      // don't cache it, so the next click retries instead of getting
+      // stuck showing a false negative.
+      setState({ status: "idle" });
     }
+  }
+
+  function recheck() {
+    clearCachedMatch(game.provider, game.id);
+    check();
   }
 
   switch (state.status) {
@@ -90,12 +115,24 @@ function GogUpgradeCheck({ game }: { game: Game }) {
       );
     case "found":
       return (
-        <button className="upgrade-found-button" onClick={() => openUrl(state.storeUrl)}>
-          Buy DRM-free on GOG
-        </button>
+        <span className="upgrade-check-status">
+          <button className="upgrade-found-button" onClick={() => openUrl(state.storeUrl)}>
+            Buy DRM-free on GOG
+          </button>
+          <button className="upgrade-recheck-button" onClick={recheck} title="Check again">
+            ↻
+          </button>
+        </span>
       );
     case "not-found":
-      return <span className="upgrade-check-status">No GOG match found</span>;
+      return (
+        <span className="upgrade-check-status">
+          No GOG match found
+          <button className="upgrade-recheck-button" onClick={recheck} title="Check again">
+            ↻
+          </button>
+        </span>
+      );
   }
 }
 
