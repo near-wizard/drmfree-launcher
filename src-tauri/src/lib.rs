@@ -18,6 +18,7 @@ pub fn run() {
             providers::gog::get_gog_cover_art,
             providers::steam::get_steam_cover_art,
             providers::steam::get_steam_wishlist,
+            providers::steam::get_steam_price,
             store::search_store,
             store::list_store_sources,
             store::gog::find_gog_match,

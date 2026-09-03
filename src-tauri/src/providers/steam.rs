@@ -38,6 +38,14 @@ impl GameProvider for SteamProvider {
 struct SteamAppDetailsData {
     name: Option<String>,
     header_image: Option<String>,
+    #[serde(default)]
+    is_free: bool,
+    price_overview: Option<SteamPriceOverview>,
+}
+
+#[derive(Debug, Deserialize)]
+struct SteamPriceOverview {
+    final_formatted: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -76,6 +84,43 @@ pub async fn get_steam_cover_art(id: String) -> Result<Option<String>, String> {
         .map_err(|e| format!("failed to parse Steam appdetails response: {e}"))?;
 
     Ok(extract_header_image(&parsed, &id))
+}
+
+/// Powers the per-game price line in CompareDealModal — `filters=basic`
+/// alone (used by the other appdetails calls above/below) does NOT
+/// include `price_overview`; it has to be requested explicitly
+/// (confirmed live: identical request without this token comes back
+/// with the field simply absent, not empty). Kept as its own command
+/// rather than folded into get_steam_cover_art so cards that never
+/// open Compare don't pay for the extra payload on every mount.
+#[tauri::command]
+pub async fn get_steam_price(id: String) -> Result<Option<String>, String> {
+    let url =
+        format!("https://store.steampowered.com/api/appdetails?appids={id}&filters=basic,price_overview");
+    let response = crate::http::client()
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("failed to reach Steam appdetails API: {e}"))?;
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let parsed: HashMap<String, SteamAppDetailsEntry> = response
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse Steam appdetails response: {e}"))?;
+
+    Ok(extract_price(&parsed, &id))
+}
+
+fn extract_price(parsed: &HashMap<String, SteamAppDetailsEntry>, id: &str) -> Option<String> {
+    let data = parsed.get(id).filter(|entry| entry.success).and_then(|entry| entry.data.as_ref())?;
+    if data.is_free {
+        return Some("Free to Play".to_string());
+    }
+    data.price_overview.as_ref().map(|p| p.final_formatted.clone())
 }
 
 fn extract_header_image(
@@ -392,6 +437,30 @@ mod tests {
     fn extract_header_image_is_none_when_id_not_in_response() {
         let parsed: HashMap<String, SteamAppDetailsEntry> = HashMap::new();
         assert_eq!(extract_header_image(&parsed, "123"), None);
+    }
+
+    #[test]
+    fn extract_price_returns_formatted_price_for_a_paid_game() {
+        let json = r#"{"1086940":{"success":true,"data":{"is_free":false,"price_overview":{"final_formatted":"$59.99"}}}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(extract_price(&parsed, "1086940").as_deref(), Some("$59.99"));
+    }
+
+    #[test]
+    fn extract_price_returns_free_to_play_label_for_free_games() {
+        // Real shape: is_free: true with no price_overview key at all,
+        // not a $0.00 price_overview — confirmed live against
+        // Counter-Strike 2 (appid 730).
+        let json = r#"{"730":{"success":true,"data":{"is_free":true}}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(extract_price(&parsed, "730").as_deref(), Some("Free to Play"));
+    }
+
+    #[test]
+    fn extract_price_is_none_when_success_is_false() {
+        let json = r#"{"1":{"success":false}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(extract_price(&parsed, "1"), None);
     }
 
     #[test]
