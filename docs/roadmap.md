@@ -65,7 +65,11 @@ plan is an independently-compiled open dataset, not yet started).
 
 ## Stage 2b — Direct Publisher Deals (future)
 Separate, closed-source marketplace backend once Stage 2a validates
-demand. Indie-publisher-first, self-serve, published take-rate.
+demand. Indie-publisher-first, self-serve, published take-rate. See
+`decisions/0011-open-core-boundary-concrete-split.md` for exactly
+which pieces of Stage 2a stay open vs. move to this closed backend —
+notably affiliate tag injection, which doesn't exist yet either
+(today's "Buy on GOG" links are plain, untagged URLs).
 
 ## Stage 3+ — Differentiation (future)
 Curated discoverability, published moderation policy, Linux/handheld
