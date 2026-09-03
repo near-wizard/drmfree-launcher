@@ -1,5 +1,6 @@
 mod commands;
 mod community;
+mod http;
 mod providers;
 mod store;
 

@@ -88,7 +88,7 @@ pub async fn submit_drm_report(
         return Err("community reporting is not configured in this build".to_string());
     };
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let request = apply_basic_auth(client.post(format!("{base_url}/reports"))).json(&SubmitReportBody {
         provider: &provider,
         game_id: &game_id,
@@ -123,7 +123,7 @@ pub async fn get_community_consensus(
         return Ok(None);
     };
 
-    let client = reqwest::Client::new();
+    let client = crate::http::client();
     let response = apply_basic_auth(client.get(format!("{base_url}/consensus/{provider}/{game_id}")))
         .send()
         .await

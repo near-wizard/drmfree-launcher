@@ -59,7 +59,9 @@ struct SteamAppDetailsEntry {
 #[tauri::command]
 pub async fn get_steam_cover_art(id: String) -> Result<Option<String>, String> {
     let url = format!("https://store.steampowered.com/api/appdetails?appids={id}&filters=basic");
-    let response = reqwest::get(&url)
+    let response = crate::http::client()
+        .get(&url)
+        .send()
         .await
         .map_err(|e| format!("failed to reach Steam appdetails API: {e}"))?;
 

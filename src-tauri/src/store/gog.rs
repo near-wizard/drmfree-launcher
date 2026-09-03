@@ -85,7 +85,7 @@ impl StoreSource for GogStoreSource {
     ) -> Result<StoreSearchResult, String> {
         let page_str = page.to_string();
 
-        let client = reqwest::Client::new();
+        let client = crate::http::client();
         let mut req = client.get(CATALOG_URL).query(&[
             ("limit", "48"),
             ("locale", "en-US"),
