@@ -23,7 +23,7 @@ all-or-nothing migration.
 
 Grab the latest installer from the
 **[Releases page](https://github.com/near-wizard/drmfree-launcher/releases)**
-— Windows (MSI/NSIS) and Linux builds. No account, no telemetry, no
+— Windows (MSI/NSIS), Linux, and macOS builds. No account, no telemetry, no
 auto-updater yet (check back on Releases for new versions).
 
 ## What it does

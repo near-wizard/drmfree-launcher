@@ -8,12 +8,6 @@ on:
 jobs:
   check:
     strategy:
-      fail-fast: false
-      # Re-testing macOS (2026-09-03) after fixing the real root cause
-      # found via the ubuntu-latest failure (Windows-only GOG code left
-      # dead items on non-Windows builds) -- that wasn't actually
-      # macOS-specific, so this should now pass there too. Remove
-      # fail-fast/this comment once confirmed.
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
