@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch, type CheckResult } from "../lib/gogUpgradeCheck";
 import { getCommunityConsensus } from "../lib/community";
 import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { track } from "../lib/analytics";
+import { MANUAL_PROVIDER, removeManualGame } from "../lib/manualGames";
+import { getMultiplayerNeedsPlatform, setMultiplayerNeedsPlatform } from "../lib/multiplayerFlag";
 import { PawIcon } from "./PawIcon";
 import { CommunityReport } from "./CommunityReport";
 import { CompareDealModal } from "./CompareDealModal";
@@ -194,6 +196,9 @@ interface GameCardProps {
    *  library-wide match-count summary updates without waiting for a
    *  bulk check. */
   onMatchChecked?: () => void;
+  /** Only relevant for manually-added games (see lib/manualGames.ts) —
+   *  omitted entirely for every other provider's cards. */
+  onRemoveManual?: (id: string) => void;
 }
 
 export function GameCard({
@@ -203,6 +208,7 @@ export function GameCard({
   providerLabels,
   cacheVersion,
   onMatchChecked,
+  onRemoveManual,
 }: GameCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [gogCoverUrl, setGogCoverUrl] = useState<string | null>(null);
@@ -210,6 +216,9 @@ export function GameCard({
   const [steamFallbackTried, setSteamFallbackTried] = useState(false);
   const [consensus, setConsensus] = useState<CommunityConsensus | null>(null);
   const [consensusLoaded, setConsensusLoaded] = useState(false);
+  const [mpNeedsPlatform, setMpNeedsPlatform] = useState(() =>
+    getMultiplayerNeedsPlatform(game.provider, game.id),
+  );
 
   useEffect(() => {
     if (game.provider !== "gog") return;
@@ -226,7 +235,11 @@ export function GameCard({
   // below also needs it — a game with no local DRM determination at
   // all falls back to what the community has agreed on, closing the
   // gap decisions 0008/0014 left open (see communityConsensus.ts).
+  // Skipped for manual entries: their id is a random per-install UUID,
+  // never shared across users, so a lookup could never match anything
+  // — a wasted round trip for a game that's already asserted DRM-free.
   useEffect(() => {
+    if (game.provider === MANUAL_PROVIDER) return;
     let cancelled = false;
     getCommunityConsensus(game.provider, game.id).then((c) => {
       if (cancelled) return;
@@ -279,19 +292,46 @@ export function GameCard({
         <span className={`drm-badge drm-${effectiveDrm.status}`} title={drmTooltip(effectiveDrm)}>
           {DRM_LABELS[effectiveDrm.status]}
         </span>
+        {mpNeedsPlatform && (
+          <span
+            className="mp-platform-badge"
+            title={`Marked by you: multiplayer still needs ${providerLabels[game.provider] ?? game.provider}, even though the base install is DRM-free.`}
+          >
+            MP needs {providerLabels[game.provider] ?? game.provider}
+          </span>
+        )}
         <span className="game-name">{game.name}</span>
       </div>
       <div className="game-card-actions">
         {consensusLoaded && consensus !== null && (
           <CommunityReport game={game} consensus={consensus} onReported={setConsensus} />
         )}
-        {game.provider !== "gog" && (
+        {game.provider !== "gog" && game.provider !== MANUAL_PROVIDER && (
           <GogUpgradeCheck
             key={cacheVersion}
             game={game}
             providerLabel={providerLabels[game.provider] ?? game.provider}
             onChecked={onMatchChecked}
           />
+        )}
+        {effectiveDrm.status === "drm-free" && (
+          <button
+            className="open-folder-button"
+            title={
+              mpNeedsPlatform
+                ? "Un-mark: multiplayer doesn't actually need the platform"
+                : "Mark: multiplayer still needs the platform, even though the base install is DRM-free"
+            }
+            aria-label={mpNeedsPlatform ? "Un-mark multiplayer platform requirement" : "Mark multiplayer platform requirement"}
+            onClick={() => {
+              const next = !mpNeedsPlatform;
+              setMultiplayerNeedsPlatform(game.provider, game.id, next);
+              setMpNeedsPlatform(next);
+              track("multiplayer_flag_toggled", { provider: game.provider, value: next });
+            }}
+          >
+            🌐
+          </button>
         )}
         {game.install_dir && (
           <button
@@ -300,15 +340,35 @@ export function GameCard({
             aria-label="Open install folder"
             onClick={() => {
               track("open_install_folder_clicked", { provider: game.provider });
-              invoke("open_install_folder", { provider: game.provider, id: game.id }).catch((e) =>
-                console.error("failed to open install folder:", e),
-              );
+              const openFolder =
+                game.provider === MANUAL_PROVIDER
+                  ? revealItemInDir(game.install_dir!)
+                  : invoke("open_install_folder", { provider: game.provider, id: game.id });
+              openFolder.catch((e) => console.error("failed to open install folder:", e));
             }}
           >
             📂
           </button>
         )}
-        <button className="play-button" disabled={launching} onClick={() => onLaunch(game)}>
+        {game.provider === MANUAL_PROVIDER && onRemoveManual && (
+          <button
+            className="open-folder-button"
+            title="Remove this manual entry"
+            aria-label="Remove this manual entry"
+            onClick={() => {
+              removeManualGame(game.id);
+              onRemoveManual(game.id);
+            }}
+          >
+            🗑
+          </button>
+        )}
+        <button
+          className="play-button"
+          disabled={launching || (game.provider === MANUAL_PROVIDER && !game.exe_path)}
+          title={game.provider === MANUAL_PROVIDER && !game.exe_path ? "No executable set for this entry" : undefined}
+          onClick={() => onLaunch(game)}
+        >
           {!launching && <PawIcon />}
           {launching ? "Launching..." : "Play"}
         </button>

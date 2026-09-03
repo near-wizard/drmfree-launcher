@@ -299,6 +299,36 @@ body {
   text-shadow: 0 0 8px rgba(63, 227, 116, 0.5);
 }
 
+.manual-game-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius);
+  background: var(--iron-mid);
+  box-shadow: var(--shadow), 0 0 0 1px var(--copper-dark);
+}
+
+.manual-game-form .store-disclosure {
+  margin: 0 0 0.2rem;
+}
+
+.manual-game-form-row {
+  display: flex;
+}
+
+.manual-game-form-actions {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.manual-game-form-cancel {
+  background: linear-gradient(180deg, #5c5040 0%, #35301f 100%);
+  color: var(--paper-dim);
+  border-color: var(--brass-dark);
+}
+
 .search-input,
 .store-search {
   flex: 1;
@@ -586,6 +616,20 @@ body {
 .drm-drm::before {
   background: var(--danger);
   box-shadow: 0 0 4px 1px var(--danger);
+}
+
+.mp-platform-badge {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.26em 0.55em;
+  border-radius: 3px;
+  color: #4a3410;
+  background: linear-gradient(180deg, var(--glow-amber) 0%, #b87a1e 100%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) inset, 0 1px 1px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--glow-amber-dark);
 }
 
 .drm-unknown {

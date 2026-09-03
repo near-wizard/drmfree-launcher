@@ -10,6 +10,8 @@ interface GameListProps {
   loading?: boolean;
   cacheVersion?: number;
   onMatchChecked?: () => void;
+  /** Forwarded to GameCard — only acted on for manually-added games. */
+  onRemoveManual?: (id: string) => void;
   /** Shown as a call-to-action on the "no installed games at all" empty
    *  state (not the "no search results" one) — a reviewer/new user
    *  with nothing installed yet would otherwise hit a dead end on
@@ -27,6 +29,7 @@ export function GameList({
   loading = false,
   cacheVersion,
   onMatchChecked,
+  onRemoveManual,
   onBrowseStore,
 }: GameListProps) {
   if (loading && games.length === 0) {
@@ -75,6 +78,7 @@ export function GameList({
           providerLabels={providerLabels}
           cacheVersion={cacheVersion}
           onMatchChecked={onMatchChecked}
+          onRemoveManual={onRemoveManual}
         />
       ))}
     </div>

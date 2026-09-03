@@ -6,7 +6,8 @@ import type { Game } from "../types/game";
 
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
-vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
+const revealItemInDirMock = vi.hoisted(() => vi.fn());
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn(), revealItemInDir: revealItemInDirMock }));
 
 function makeGame(overrides: Partial<Game> = {}): Game {
   return {
@@ -108,5 +109,176 @@ describe("GameCard open-install-folder action", () => {
       provider: "steam",
       id: "248820",
     });
+  });
+});
+
+describe("GameCard manual entries", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+    revealItemInDirMock.mockReset();
+    revealItemInDirMock.mockResolvedValue(undefined);
+  });
+
+  function makeManualGame(overrides: Partial<Game> = {}): Game {
+    return makeGame({
+      provider: "manual",
+      drm: { status: "drm-free", source: "self-reported", method: "manual_review", verified_on: "2026-01-01" },
+      ...overrides,
+    });
+  }
+
+  it("does not render a 'Check GOG' control for a manual entry", async () => {
+    render(
+      <GameCard game={makeManualGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    expect(screen.queryByRole("button", { name: "Check GOG" })).not.toBeInTheDocument();
+  });
+
+  it("does not fetch community consensus for a manual entry", async () => {
+    render(
+      <GameCard game={makeManualGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    // getCommunityConsensus jitters its own request by up to 250ms
+    // (see community.ts), so a sibling test's still-pending fetch for
+    // an unrelated game can resolve during this window — assert on
+    // what this test actually cares about (no manual-provider lookup)
+    // rather than a blanket "invoke was never called at all," which
+    // is fragile against that unrelated async leakage.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(invokeMock).not.toHaveBeenCalledWith(
+      "get_community_consensus",
+      expect.objectContaining({ provider: "manual" }),
+    );
+  });
+
+  it("disables Play with an explanatory title when no executable is set", () => {
+    render(
+      <GameCard
+        game={makeManualGame({ exe_path: null })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    const play = screen.getByRole("button", { name: "Play" });
+    expect(play).toBeDisabled();
+    expect(play).toHaveAttribute("title", "No executable set for this entry");
+  });
+
+  it("enables Play once an executable is set", () => {
+    render(
+      <GameCard
+        game={makeManualGame({ exe_path: "C:\\Games\\Celeste.exe" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Play" })).not.toBeDisabled();
+  });
+
+  it("opens the install folder client-side via revealItemInDir, not the backend command", async () => {
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeManualGame({ install_dir: "C:\\Games\\Celeste" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Open install folder" }));
+    expect(revealItemInDirMock).toHaveBeenCalledWith("C:\\Games\\Celeste");
+    expect(invokeMock).not.toHaveBeenCalledWith("open_install_folder", expect.anything());
+  });
+
+  it("shows a remove button that removes the entry from storage and notifies the parent", async () => {
+    const user = userEvent.setup();
+    const onRemoveManual = vi.fn();
+    localStorage.setItem(
+      "drmfree-launcher:manual-games",
+      JSON.stringify([{ id: "1", name: "Mystery Game", exePath: null, installDir: null, addedAt: 0 }]),
+    );
+    render(
+      <GameCard
+        game={makeManualGame()}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+        onRemoveManual={onRemoveManual}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Remove this manual entry" }));
+    expect(onRemoveManual).toHaveBeenCalledWith("1");
+    expect(JSON.parse(localStorage.getItem("drmfree-launcher:manual-games")!)).toEqual([]);
+  });
+});
+
+describe("GameCard multiplayer-needs-platform flag", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+    invokeMock.mockResolvedValue(null);
+  });
+
+  function makeDrmFreeGame(overrides: Partial<Game> = {}): Game {
+    return makeGame({
+      drm: { status: "drm-free", source: "gog", method: "gog_import", verified_on: "2026-01-01" },
+      ...overrides,
+    });
+  }
+
+  it("does not show the toggle for a game that isn't DRM-free", () => {
+    render(
+      <GameCard game={makeGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    expect(screen.queryByRole("button", { name: "Mark multiplayer platform requirement" })).not.toBeInTheDocument();
+  });
+
+  it("shows the toggle and no badge by default for a DRM-free game", () => {
+    render(
+      <GameCard game={makeDrmFreeGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    expect(screen.getByRole("button", { name: "Mark multiplayer platform requirement" })).toBeInTheDocument();
+    expect(screen.queryByText(/MP needs/)).not.toBeInTheDocument();
+  });
+
+  it("shows the badge and persists the flag after toggling on", async () => {
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeDrmFreeGame({ provider: "steam", id: "248820" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{ steam: "Steam" }}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Mark multiplayer platform requirement" }));
+    expect(screen.getByText("MP needs Steam")).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("drmfree-launcher:multiplayer-needs-platform")!)).toEqual({
+      "steam:248820": true,
+    });
+  });
+
+  it("clears the badge and storage after toggling back off", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem(
+      "drmfree-launcher:multiplayer-needs-platform",
+      JSON.stringify({ "steam:248820": true }),
+    );
+    render(
+      <GameCard
+        game={makeDrmFreeGame({ provider: "steam", id: "248820" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{ steam: "Steam" }}
+      />,
+    );
+    expect(screen.getByText("MP needs Steam")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Un-mark multiplayer platform requirement" }));
+    expect(screen.queryByText("MP needs Steam")).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("drmfree-launcher:multiplayer-needs-platform")!)).toEqual({});
   });
 });

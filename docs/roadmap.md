@@ -73,6 +73,10 @@ see `decisions/0005-drm-free-only-catalog.md`.
       and a Steam wishlist cross-reference against GOG's catalog — all
       surfacing the upgrade-loop argument earlier and more visibly than
       a single per-game badge. See `decisions/0018`.
+- [x] Manual "I own this DRM-free" entries (for storefronts without a
+      provider, e.g. itch.io) and a per-game "multiplayer needs the
+      platform" flag on otherwise-DRM-free titles. See
+      `decisions/0019`.
 
 Core loop this unlocks: keep launching your existing (often
 DRM-locked) library, but surface a "Buy DRM-free version" prompt on

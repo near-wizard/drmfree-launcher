@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
+import { AddManualGameForm } from "./components/AddManualGameForm";
 import { Mascot } from "./components/Mascot";
 import { PawIcon } from "./components/PawIcon";
 import { StoreView } from "./store/StoreView";
@@ -9,6 +10,13 @@ import { FreedomDashboard } from "./components/FreedomDashboard";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
 import { checkGogMatch } from "./lib/gogUpgradeCheck";
+import {
+  addManualGame,
+  loadManualGames,
+  manualEntryToGame,
+  MANUAL_PROVIDER,
+  type ManualGameEntry,
+} from "./lib/manualGames";
 import { buildReportIssueUrl } from "./lib/reportIssue";
 import {
   checkForUpdate,
@@ -25,7 +33,7 @@ import {
   track,
   type ConsentStatus,
 } from "./lib/analytics";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import type { DrmStatus, Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
 import "./App.css";
@@ -40,7 +48,12 @@ function App() {
     track("tab_changed", { tab: next });
   }
   const [games, setGames] = useState<Game[]>([]);
-  const [providerLabels, setProviderLabels] = useState<Record<string, string>>({});
+  // "manual" is never returned by the backend's list_providers (it has
+  // no GameProvider — see lib/manualGames.ts), so its label is seeded
+  // here rather than waiting on that fetch.
+  const [providerLabels, setProviderLabels] = useState<Record<string, string>>({
+    [MANUAL_PROVIDER]: "Manual",
+  });
   const [loading, setLoading] = useState(true);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +71,18 @@ function App() {
   const [updateInstalling, setUpdateInstalling] = useState(false);
   const [updateError, setUpdateError] = useState(false);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus>(() => getConsentStatus());
+  const [manualGames, setManualGames] = useState<ManualGameEntry[]>(() => loadManualGames());
+  const [showAddForm, setShowAddForm] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Detected (games) + manually-added (manualGames) merged into one
+  // library — manual entries live in their own localStorage-backed
+  // state (lib/manualGames.ts) rather than the backend's game list, so
+  // a Rescan can't ever wipe them out. See decision 0019.
+  const allGames = useMemo(
+    () => [...games, ...manualGames.map(manualEntryToGame)],
+    [games, manualGames],
+  );
 
   async function refresh() {
     setLoading(true);
@@ -75,7 +99,10 @@ function App() {
 
   useEffect(() => {
     invoke<ProviderInfo[]>("list_providers").then((providers) => {
-      setProviderLabels(Object.fromEntries(providers.map((p) => [p.id, p.display_name])));
+      setProviderLabels((prev) => ({
+        ...prev,
+        ...Object.fromEntries(providers.map((p) => [p.id, p.display_name])),
+      }));
     });
     refresh();
     // No auto-updater (that needs a signing-key setup of its own) —
@@ -147,7 +174,16 @@ function App() {
     setError(null);
     track("game_launched", { provider: game.provider });
     try {
-      await invoke("launch_game", { provider: game.provider, id: game.id });
+      // Manual entries have no backend GameProvider to route through
+      // (they're not detected, just user-declared) — launch directly
+      // via the OS's own file-open handling instead of the
+      // provider-registry-backed launch_game command.
+      if (game.provider === MANUAL_PROVIDER) {
+        if (!game.exe_path) throw new Error(`No executable set for ${game.name}`);
+        await openPath(game.exe_path);
+      } else {
+        await invoke("launch_game", { provider: game.provider, id: game.id });
+      }
       recordLaunch(game.provider, game.id);
       setLastPlayed(loadLastPlayedMap());
     } catch (e) {
@@ -157,6 +193,21 @@ function App() {
     }
   }
 
+  function onAddManualGame(input: { name: string; exePath: string; installDir: string }) {
+    addManualGame({
+      name: input.name,
+      exePath: input.exePath || null,
+      installDir: input.installDir || null,
+    });
+    setManualGames(loadManualGames());
+    setShowAddForm(false);
+    track("manual_game_added");
+  }
+
+  function onRemoveManualGame() {
+    setManualGames(loadManualGames());
+  }
+
   // Still opt-in overall (the user explicitly clicks this), but checks
   // a whole library in one go instead of requiring one click per game —
   // the per-card "Check GOG" button alone doesn't scale past a handful
@@ -164,8 +215,8 @@ function App() {
   // API; already-cached games are skipped so this only ever does new
   // work.
   async function checkLibraryForDrmFree() {
-    const toCheck = games.filter(
-      (g) => g.provider !== "gog" && !getCachedMatch(g.provider, g.id),
+    const toCheck = allGames.filter(
+      (g) => g.provider !== "gog" && g.provider !== MANUAL_PROVIDER && !getCachedMatch(g.provider, g.id),
     );
     if (toCheck.length === 0) return;
 
@@ -187,21 +238,21 @@ function App() {
   // localStorage, which useMemo has no other way to observe.
   const drmFreeMatchCount = useMemo(
     () =>
-      games.filter(
+      allGames.filter(
         (g) => g.provider !== "gog" && getCachedMatch(g.provider, g.id)?.status === "found",
       ).length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [games, cacheVersion],
+    [allGames, cacheVersion],
   );
 
   const availableProviders = useMemo(
-    () => Array.from(new Set(games.map((g) => g.provider))).sort(),
-    [games],
+    () => Array.from(new Set(allGames.map((g) => g.provider))).sort(),
+    [allGames],
   );
 
   const visibleGames = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = games
+    const filtered = allGames
       .filter((g) => providerFilter === "all" || g.provider === providerFilter)
       .filter((g) => drmFilter === "all" || g.drm.status === drmFilter)
       .filter((g) => q === "" || g.name.toLowerCase().includes(q));
@@ -221,7 +272,7 @@ function App() {
       default:
         return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }
-  }, [games, query, providerFilter, drmFilter, sortBy, lastPlayed]);
+  }, [allGames, query, providerFilter, drmFilter, sortBy, lastPlayed]);
 
   // Enter-to-launch from the search box targets the top visible result —
   // there's no per-card keyboard focus model, so this is the "quick
@@ -311,9 +362,9 @@ function App() {
           <Mascot />
           <div>
             <h1>{tab === "library" ? "Your Library" : tab === "store" ? "Store" : "Wishlist"}</h1>
-            {tab === "library" && games.length > 0 && (
+            {tab === "library" && allGames.length > 0 && (
               <p className="header-subtitle">
-                {games.length} game{games.length === 1 ? "" : "s"} across{" "}
+                {allGames.length} game{allGames.length === 1 ? "" : "s"} across{" "}
                 {availableProviders.length} source{availableProviders.length === 1 ? "" : "s"}
               </p>
             )}
@@ -367,8 +418,19 @@ function App() {
           the Store tab's search/pagination state and the Wishlist
           tab's loaded results survive switching to Library and back. */}
       <div hidden={tab !== "library"}>
-        <FreedomDashboard games={games} />
-        {games.length > 0 && (
+        <FreedomDashboard games={allGames} />
+        <div className="library-controls">
+          <button
+            className="upgrade-check-button"
+            onClick={() => setShowAddForm((v) => !v)}
+          >
+            {showAddForm ? "Cancel" : "+ Add a DRM-free game"}
+          </button>
+        </div>
+        {showAddForm && (
+          <AddManualGameForm onAdd={onAddManualGame} onCancel={() => setShowAddForm(false)} />
+        )}
+        {allGames.length > 0 && (
           <div className="library-controls">
             <input
               ref={searchInputRef}
@@ -387,11 +449,11 @@ function App() {
                 track("library_filter_changed", { type: "provider", value: e.currentTarget.value });
               }}
             >
-              <option value="all">All sources ({games.length})</option>
+              <option value="all">All sources ({allGames.length})</option>
               {availableProviders.map((p) => (
                 <option key={p} value={p}>
                   {(providerLabels[p] ?? p) +
-                    ` (${games.filter((g) => g.provider === p).length})`}
+                    ` (${allGames.filter((g) => g.provider === p).length})`}
                 </option>
               ))}
             </select>
@@ -404,13 +466,13 @@ function App() {
               }}
               aria-label="Filter library by DRM status"
             >
-              <option value="all">All DRM statuses ({games.length})</option>
+              <option value="all">All DRM statuses ({allGames.length})</option>
               <option value="drm-free">
-                DRM-Free ({games.filter((g) => g.drm.status === "drm-free").length})
+                DRM-Free ({allGames.filter((g) => g.drm.status === "drm-free").length})
               </option>
-              <option value="drm">DRM ({games.filter((g) => g.drm.status === "drm").length})</option>
+              <option value="drm">DRM ({allGames.filter((g) => g.drm.status === "drm").length})</option>
               <option value="unknown">
-                DRM Unknown ({games.filter((g) => g.drm.status === "unknown").length})
+                DRM Unknown ({allGames.filter((g) => g.drm.status === "unknown").length})
               </option>
             </select>
             <select
@@ -429,7 +491,7 @@ function App() {
           </div>
         )}
 
-        {games.length > 0 && (
+        {allGames.length > 0 && (
           <div className="upgrade-summary-bar">
             {bulkCheckProgress ? (
               <span className="upgrade-check-status">
@@ -458,10 +520,11 @@ function App() {
           onLaunch={launch}
           launchingId={launchingId}
           providerLabels={providerLabels}
-          hasAnyGames={games.length > 0}
+          hasAnyGames={allGames.length > 0}
           loading={loading}
           cacheVersion={cacheVersion}
           onMatchChecked={() => setCacheVersion((v) => v + 1)}
+          onRemoveManual={onRemoveManualGame}
           onBrowseStore={() => {
             track("empty_state_browse_store_clicked");
             setTab("store");
