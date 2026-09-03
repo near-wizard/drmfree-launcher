@@ -27,6 +27,67 @@ pub enum DrmStatus {
     Unknown,
 }
 
+/// How a `DrmRecord`'s status was determined. This is provenance, not
+/// display copy — decision 0008 exists precisely because "DRM-free"
+/// alone doesn't say whether that's a verified per-title fact or a
+/// storefront-level default, and future sources (a real independently-
+/// compiled dataset, a direct publisher deal) need to be tellable apart
+/// from each other and from today's blanket GOG-storefront assumption.
+///
+/// Only `GogImport` is actually constructed anywhere today; the rest
+/// are here so `DrmRecord` doesn't need a breaking shape change once
+/// decision 0008's dataset (or a publisher/community source) exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DrmDeterminationMethod {
+    /// Inferred from a storefront's own known-DRM-free policy at
+    /// import time (e.g. "GOG is DRM-free") — not a per-title check.
+    GogImport,
+    #[allow(dead_code)]
+    /// The publisher/developer states DRM-free status themselves
+    /// (store page copy, press kit, direct statement).
+    PublisherDeclared,
+    #[allow(dead_code)]
+    /// Sourced from a community-maintained dataset — the
+    /// independently-compiled open dataset decision 0008 anticipates,
+    /// not PCGamingWiki's list (ruled out there on licensing grounds).
+    CommunityReview,
+    #[allow(dead_code)]
+    /// A maintainer of this project checked the title by hand.
+    ManualReview,
+}
+
+/// A DRM status plus where it came from. `source` and `method` are
+/// `None` together iff `status` is `Unknown` — there's nothing to cite
+/// when no determination was made at all.
+#[derive(Debug, Clone, Serialize)]
+pub struct DrmRecord {
+    pub status: DrmStatus,
+    /// Free-form provenance label (e.g. "gog"), not an enum — decision
+    /// 0008 anticipates sources that shouldn't require a type change
+    /// here to add (a dataset name, a publisher name, ...).
+    pub source: Option<String>,
+    pub method: Option<DrmDeterminationMethod>,
+}
+
+impl DrmRecord {
+    pub fn unknown() -> Self {
+        DrmRecord {
+            status: DrmStatus::Unknown,
+            source: None,
+            method: None,
+        }
+    }
+
+    pub fn drm_free(source: impl Into<String>, method: DrmDeterminationMethod) -> Self {
+        DrmRecord {
+            status: DrmStatus::DrmFree,
+            source: Some(source.into()),
+            method: Some(method),
+        }
+    }
+}
+
 /// A single locally-installed game, normalized across providers.
 #[derive(Debug, Clone, Serialize)]
 pub struct Game {
@@ -40,7 +101,7 @@ pub struct Game {
     /// DRM-free providers). `None` when launch uses `id` alone, as with
     /// Steam's `steam://rungameid/<id>` handoff.
     pub exe_path: Option<String>,
-    pub drm_status: DrmStatus,
+    pub drm: DrmRecord,
 }
 
 /// Abstraction over "a place games can be installed and launched from".
@@ -73,4 +134,55 @@ pub fn all_providers() -> Vec<Box<dyn GameProvider>> {
         Box::new(gog::GogProvider),
         Box::new(epic::EpicProvider),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unknown_record_has_no_source_or_method() {
+        let record = DrmRecord::unknown();
+        assert_eq!(record.status, DrmStatus::Unknown);
+        assert_eq!(record.source, None);
+        assert_eq!(record.method, None);
+    }
+
+    #[test]
+    fn drm_free_record_carries_source_and_method() {
+        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport);
+        assert_eq!(record.status, DrmStatus::DrmFree);
+        assert_eq!(record.source.as_deref(), Some("gog"));
+        assert_eq!(record.method, Some(DrmDeterminationMethod::GogImport));
+    }
+
+    // Locks in the exact wire shape the frontend depends on — a field
+    // rename here would silently break `src/types/game.ts` without
+    // this test failing.
+    #[test]
+    fn drm_record_serializes_with_snake_case_method_and_named_fields() {
+        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport);
+        let json = serde_json::to_value(&record).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "status": "drm-free",
+                "source": "gog",
+                "method": "gog_import",
+            })
+        );
+    }
+
+    #[test]
+    fn unknown_record_serializes_source_and_method_as_null() {
+        let json = serde_json::to_value(DrmRecord::unknown()).unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({
+                "status": "unknown",
+                "source": null,
+                "method": null,
+            })
+        );
+    }
 }

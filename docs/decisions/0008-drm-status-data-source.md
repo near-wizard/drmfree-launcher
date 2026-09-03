@@ -41,3 +41,16 @@ Nothing in Stage 0/1 needs this. Scaffolding it now is ahead of
 Stage 2a's actual GOG-catalog/title-matching work per the brief's own
 sequencing rule. Revisit when Stage 2a's catalog and title-matching
 design (see decision 0006's open questions) is actually underway.
+
+## Update: provenance schema exists, dataset still doesn't
+
+`Game.drm` (`src-tauri/src/providers/mod.rs`) is a `DrmRecord {
+status, source, method }`, not a bare status — `method` is a
+`DrmDeterminationMethod` (`gog_import`, `publisher_declared`,
+`community_review`, `manual_review`, ...) so a future record can say
+*how* its status was determined, not just what it is. Today only
+`gog_import` is ever constructed (GOG's whole-storefront policy, in
+`gog.rs`); the other variants exist so this dataset — whenever it's
+built — has somewhere to plug in without a breaking type change.
+This is the record shape, not the sourcing work above; that's still
+not started.

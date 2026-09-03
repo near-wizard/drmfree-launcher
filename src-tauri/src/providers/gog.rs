@@ -1,4 +1,4 @@
-use super::{DrmStatus, Game, GameProvider};
+use super::{DrmDeterminationMethod, DrmRecord, Game, GameProvider};
 
 pub struct GogProvider;
 
@@ -58,7 +58,7 @@ fn resolve_exe_path(exe: Option<&str>, install_path: &str) -> std::path::PathBuf
 
 #[cfg(target_os = "windows")]
 mod windows {
-    use super::{resolve_exe_path, DrmStatus, Game};
+    use super::{resolve_exe_path, DrmDeterminationMethod, DrmRecord, Game};
     use winreg::enums::*;
     use winreg::RegKey;
 
@@ -105,7 +105,7 @@ mod windows {
                     // GOG's entire storefront policy is DRM-free — safe
                     // to assert outright, unlike Steam/Epic where DRM
                     // varies per-title (see decision 0008).
-                    drm_status: DrmStatus::DrmFree,
+                    drm: DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport),
                 });
             }
         }

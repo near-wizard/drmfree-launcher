@@ -1,11 +1,27 @@
 import { useState } from "react";
-import type { DrmStatus, Game } from "../types/game";
+import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
   "drm-free": "DRM-Free",
   drm: "DRM",
   unknown: "DRM Unknown",
 };
+
+const DETERMINATION_LABELS: Record<DrmDeterminationMethod, string> = {
+  gog_import: "GOG storefront policy",
+  publisher_declared: "publisher declared",
+  community_review: "community review",
+  manual_review: "manual review",
+};
+
+// Surfaced as a tooltip, not the badge itself — decision 0008 exists
+// because "DRM-Free" alone doesn't say whether that's a verified fact
+// or a storefront-level default, so the provenance is one hover away
+// rather than hidden entirely.
+function drmTooltip(drm: DrmRecord): string | undefined {
+  if (!drm.source || !drm.method) return undefined;
+  return `Source: ${drm.source} (${DETERMINATION_LABELS[drm.method]})`;
+}
 
 // Steam app IDs map directly to a public CDN header image; no API key needed.
 // Other providers don't expose an equivalent local-install-derivable image source.
@@ -46,8 +62,8 @@ export function GameCard({ game, onLaunch, launching, providerLabels }: GameCard
         <span className={`origin-badge origin-${game.provider}`}>
           {providerLabels[game.provider] ?? game.provider}
         </span>
-        <span className={`drm-badge drm-${game.drm_status}`}>
-          {DRM_LABELS[game.drm_status]}
+        <span className={`drm-badge drm-${game.drm.status}`} title={drmTooltip(game.drm)}>
+          {DRM_LABELS[game.drm.status]}
         </span>
         <span className="game-name">{game.name}</span>
       </div>
