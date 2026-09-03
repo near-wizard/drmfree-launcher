@@ -915,6 +915,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "url",
  "winreg 0.52.0",
 ]
 

@@ -16,6 +16,43 @@ pub mod gog;
 use async_trait::async_trait;
 use serde::Serialize;
 
+/// Base URL of a deployed `drmfree-redirect` instance (e.g.
+/// `https://go.drmfreegames.example`), baked in at compile time via
+/// `option_env!` — same pattern as `COMMUNITY_API_URL` in
+/// `community.rs` and the PostHog key in `src/lib/analytics.ts`.
+/// Unset in ordinary `cargo build`/dev, so "Buy" links point straight
+/// at the storefront until a real deployment sets this in CI; nothing
+/// here needs to change once it is (see decision 0011 and
+/// `drmfree-redirect`'s README).
+fn affiliate_redirect_base_url() -> Option<&'static str> {
+    option_env!("AFFILIATE_REDIRECT_URL")
+}
+
+/// Rewrites a storefront URL to route through the affiliate redirect
+/// service's `/go?url=<dest>` endpoint when one is configured;
+/// otherwise returns the URL unchanged. The redirect service itself
+/// decides whether to attach a tracking tag (falls back to a plain
+/// pass-through redirect if no affiliate template is configured on
+/// its end either) — this function's only job is deciding whether to
+/// route through it at all.
+fn apply_affiliate_redirect(store_url: &str) -> String {
+    redirect_through(store_url, affiliate_redirect_base_url())
+}
+
+/// The actual rewrite, with the base URL passed in rather than read
+/// from `option_env!` directly — split out purely so the `Some(base)`
+/// branch is unit-testable without a compile-time env var, which
+/// `cargo test` has no way to set per-test.
+fn redirect_through(store_url: &str, base: Option<&str>) -> String {
+    match base {
+        Some(base) => {
+            let encoded: String = url::form_urlencoded::byte_serialize(store_url.as_bytes()).collect();
+            format!("{base}/go?url={encoded}")
+        }
+        None => store_url.to_string(),
+    }
+}
+
 /// A single storefront listing, normalized for the UI regardless of which
 /// source produced it. Every entry on screen must be clearly attributed to
 /// its source per decision 0006's "Buy on GOG"-style labeling requirement
@@ -124,8 +161,11 @@ pub async fn search_store(
 
     for s in &selected {
         match s.search(query.as_deref(), page, include_nsfw).await {
-            Ok(result) => {
+            Ok(mut result) => {
                 total_pages = total_pages.max(result.total_pages);
+                for listing in &mut result.listings {
+                    listing.store_url = apply_affiliate_redirect(&listing.store_url);
+                }
                 listings.extend(result.listings);
             }
             Err(e) => errors.push(format!("{}: {e}", s.id())),
@@ -141,4 +181,40 @@ pub async fn search_store(
         page,
         total_pages,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redirect_through_passes_url_unchanged_when_no_base_configured() {
+        assert_eq!(
+            redirect_through("https://www.gog.com/game/foo", None),
+            "https://www.gog.com/game/foo"
+        );
+    }
+
+    #[test]
+    fn redirect_through_wraps_and_percent_encodes_the_destination() {
+        let result = redirect_through(
+            "https://www.gog.com/game/foo?bar=baz&qux=1",
+            Some("https://go.example.com"),
+        );
+        assert_eq!(
+            result,
+            "https://go.example.com/go?url=https%3A%2F%2Fwww.gog.com%2Fgame%2Ffoo%3Fbar%3Dbaz%26qux%3D1"
+        );
+    }
+
+    #[test]
+    fn redirect_through_strips_trailing_slash_expectation_not_assumed() {
+        // Base URLs are expected without a trailing slash (matches
+        // drmfree-redirect's README example) — this documents that a
+        // trailing slash would produce a double slash rather than
+        // silently normalizing it, so a misconfigured env var fails
+        // loud (broken link) rather than working by accident.
+        let result = redirect_through("https://www.gog.com/game/foo", Some("https://go.example.com/"));
+        assert_eq!(result, "https://go.example.com//go?url=https%3A%2F%2Fwww.gog.com%2Fgame%2Ffoo");
+    }
 }
