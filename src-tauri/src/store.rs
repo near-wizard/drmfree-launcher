@@ -139,21 +139,52 @@ fn to_listing(p: CatalogProduct) -> StoreListing {
     }
 }
 
-/// Normalizes a title for exact-match comparison: case-insensitive,
-/// strips trademark/registered/copyright marks, collapses whitespace.
-/// Deliberately NOT stripping words like "Edition"/"Demo"/"Bundle" —
-/// decision 0006 flags exactly that kind of over-eager normalization
-/// as the false-positive risk to avoid (a real Steam library surfaced
-/// "Half Sword Demo", which must not match a paid "Half Sword" entry).
-fn normalize_title(title: &str) -> String {
-    title
+/// Strips patterns confirmed (empirically, against the real API — not
+/// assumed) to corrupt GOG's search relevance rather than just get
+/// filtered by it: a trailing "(YYYY)" disambiguation year (Steam's
+/// own listing name for e.g. "Risk of Rain (2013)" vs GOG's plain
+/// "Risk of Rain" — searching the literal "(2013)" returns *zero*
+/// results) and trademark/registered/copyright symbols (searching
+/// "Rocket League®" returns unrelated results, not Rocket League).
+/// Also collapses whitespace. Deliberately NOT stripping words like
+/// "Edition"/"Demo"/"Bundle", or parentheticals in general — decision
+/// 0006 flags exactly that kind of over-eager normalization as the
+/// false-positive risk to avoid (a real Steam library surfaced "Half
+/// Sword Demo", which must not match a paid "Half Sword" entry).
+fn clean_search_query(title: &str) -> String {
+    strip_trailing_year_suffix(title)
         .chars()
         .filter(|c| !matches!(c, '™' | '®' | '©'))
         .collect::<String>()
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
-        .to_lowercase()
+}
+
+/// Same cleaning as `clean_search_query`, plus lowercasing, for
+/// case-insensitive exact-match comparison against fetched results.
+fn normalize_title(title: &str) -> String {
+    clean_search_query(title).to_lowercase()
+}
+
+/// Strips a trailing `(YYYY)` (exactly 4 ASCII digits) from a title,
+/// if present. Narrower than stripping parentheticals in general: an
+/// edition/bundle qualifier like "(Definitive Edition)" isn't 4
+/// digits and is left alone.
+fn strip_trailing_year_suffix(title: &str) -> String {
+    let trimmed = title.trim_end();
+    let Some(before_paren) = trimmed.strip_suffix(')') else {
+        return title.to_string();
+    };
+    let Some(open) = before_paren.rfind('(') else {
+        return title.to_string();
+    };
+    let inner = &before_paren[open + 1..];
+    if inner.len() == 4 && inner.bytes().all(|b| b.is_ascii_digit()) {
+        before_paren[..open].trim_end().to_string()
+    } else {
+        title.to_string()
+    }
 }
 
 /// Finds an exact-title match for a locally-detected game in GOG's
@@ -166,7 +197,8 @@ fn normalize_title(title: &str) -> String {
 /// GOG's own search relevance anyway.
 #[tauri::command]
 pub async fn find_gog_match(title: String) -> Result<Option<StoreListing>, String> {
-    let result = search_store(Some(title.clone()), Some(1), Some(false)).await?;
+    let query = clean_search_query(&title);
+    let result = search_store(Some(query), Some(1), Some(false)).await?;
     Ok(find_exact_match(result.listings, &title))
 }
 
@@ -305,10 +337,48 @@ mod tests {
     }
 
     #[test]
+    fn normalize_title_strips_trailing_year_disambiguation_suffix() {
+        // Real case: Steam's own listing name is "Risk of Rain (2013)"
+        // (disambiguating from Risk of Rain 2); GOG lists the same game
+        // as plain "Risk of Rain" — a storefront naming convention, not
+        // a different product.
+        assert_eq!(normalize_title("Risk of Rain (2013)"), normalize_title("Risk of Rain"));
+    }
+
+    #[test]
+    fn normalize_title_does_not_strip_non_year_parentheticals() {
+        // An edition/qualifier in parens changes what product this is —
+        // must not be treated the same as a disambiguation year.
+        assert_ne!(
+            normalize_title("Prince of Persia (Definitive Edition)"),
+            normalize_title("Prince of Persia")
+        );
+    }
+
+    #[test]
+    fn clean_search_query_strips_year_suffix_and_trademark_symbols() {
+        // Confirmed against the real API: GOG's search returns zero
+        // results for the literal "Risk of Rain (2013)" query, and
+        // unrelated results for "Rocket League®" — these aren't just
+        // filtered out locally, they corrupt the search itself, so the
+        // query sent to GOG must already be cleaned, not just the
+        // fetched results compared afterward.
+        assert_eq!(clean_search_query("Risk of Rain (2013)"), "Risk of Rain");
+        assert_eq!(clean_search_query("Rocket League®"), "Rocket League");
+    }
+
+    #[test]
     fn find_exact_match_matches_case_and_symbol_insensitively() {
         let listings = vec![listing("The Witcher™ 3: Wild Hunt"), listing("Cyberpunk 2077")];
         let found = find_exact_match(listings, "the witcher 3: wild hunt");
         assert_eq!(found.map(|l| l.title), Some("The Witcher™ 3: Wild Hunt".to_string()));
+    }
+
+    #[test]
+    fn find_exact_match_matches_across_a_year_disambiguation_suffix() {
+        let listings = vec![listing("Risk of Rain")];
+        let found = find_exact_match(listings, "Risk of Rain (2013)");
+        assert_eq!(found.map(|l| l.title), Some("Risk of Rain".to_string()));
     }
 
     #[test]
