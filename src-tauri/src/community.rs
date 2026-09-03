@@ -19,6 +19,24 @@ fn community_api_url() -> Option<&'static str> {
     option_env!("COMMUNITY_API_URL")
 }
 
+// Optional `user:pass`, compile-time baked the same way as the URL
+// itself. Exists for cheap early deployments sitting behind HTTP
+// Basic Auth (a free-tier ngrok tunnel, a bare VPS with nginx
+// basic_auth) — not meant as this feature's long-term access model,
+// just enough to test/host before something sturdier is worth setting
+// up.
+fn community_api_basic_auth() -> Option<(&'static str, &'static str)> {
+    let raw = option_env!("COMMUNITY_API_BASIC_AUTH")?;
+    raw.split_once(':')
+}
+
+fn apply_basic_auth(builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    match community_api_basic_auth() {
+        Some((user, pass)) => builder.basic_auth(user, Some(pass)),
+        None => builder,
+    }
+}
+
 #[derive(Debug, Serialize)]
 struct SubmitReportBody<'a> {
     provider: &'a str,
@@ -71,16 +89,15 @@ pub async fn submit_drm_report(
     };
 
     let client = reqwest::Client::new();
-    let response = client
-        .post(format!("{base_url}/reports"))
-        .json(&SubmitReportBody {
-            provider: &provider,
-            game_id: &game_id,
-            title: &title,
-            status: &status,
-            note: note.as_deref(),
-            client_id: &client_id,
-        })
+    let request = apply_basic_auth(client.post(format!("{base_url}/reports"))).json(&SubmitReportBody {
+        provider: &provider,
+        game_id: &game_id,
+        title: &title,
+        status: &status,
+        note: note.as_deref(),
+        client_id: &client_id,
+    });
+    let response = request
         .send()
         .await
         .map_err(|e| format!("failed to reach community service: {e}"))?;
@@ -107,8 +124,7 @@ pub async fn get_community_consensus(
     };
 
     let client = reqwest::Client::new();
-    let response = client
-        .get(format!("{base_url}/consensus/{provider}/{game_id}"))
+    let response = apply_basic_auth(client.get(format!("{base_url}/consensus/{provider}/{game_id}")))
         .send()
         .await
         .map_err(|e| format!("failed to reach community service: {e}"))?

@@ -581,11 +581,9 @@ input::placeholder {
 select {
   font-family: "Segoe UI", Arial, sans-serif;
   color: var(--brass-light);
-  background-color: transparent;
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23f0d488' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"),
-    linear-gradient(180deg, #4d3f2b 0%, #322818 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset, 0 -1px 3px rgba(0, 0, 0, 0.5) inset, 0 2px 3px rgba(0, 0, 0, 0.4);
+  background-color: var(--iron-mid);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23f0d488' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  box-shadow: none;
 }
 
 input:focus,
@@ -719,8 +717,10 @@ button:disabled {
 
 .community-status-select {
   min-width: 0;
+  appearance: none;
   padding: 0.3em 1.6em 0.3em 0.5em;
   font-size: 0.68rem;
+  background-repeat: no-repeat;
   background-size: 8px 5px;
   background-position: right 0.5em center;
 }
