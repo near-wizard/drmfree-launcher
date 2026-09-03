@@ -20,7 +20,8 @@ const DETERMINATION_LABELS: Record<DrmDeterminationMethod, string> = {
 // rather than hidden entirely.
 function drmTooltip(drm: DrmRecord): string | undefined {
   if (!drm.source || !drm.method) return undefined;
-  return `Source: ${drm.source} (${DETERMINATION_LABELS[drm.method]})`;
+  const verified = drm.verified_on ? ` · verified ${drm.verified_on}` : "";
+  return `Source: ${drm.source} (${DETERMINATION_LABELS[drm.method]})${verified}`;
 }
 
 // Steam app IDs map directly to a public CDN header image; no API key needed.

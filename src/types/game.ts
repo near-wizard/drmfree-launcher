@@ -10,6 +10,8 @@ export interface DrmRecord {
   status: DrmStatus;
   source: string | null;
   method: DrmDeterminationMethod | null;
+  /** ISO 8601 date (YYYY-MM-DD) the determination was last confirmed accurate. */
+  verified_on: string | null;
 }
 
 export interface Game {

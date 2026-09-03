@@ -1,5 +1,12 @@
 use super::{DrmDeterminationMethod, DrmRecord, Game, GameProvider};
 
+/// Last date a maintainer confirmed GOG's storefront-wide DRM-free
+/// policy still holds. Fixed, not `now()` at scan time — a scan
+/// happens on every launch and "verified today" would be meaningless
+/// noise rather than an actual audit trail. Update by hand if this
+/// policy is ever reconfirmed or changes.
+const GOG_POLICY_VERIFIED_ON: &str = "2026-09-02";
+
 pub struct GogProvider;
 
 impl GameProvider for GogProvider {
@@ -105,7 +112,11 @@ mod windows {
                     // GOG's entire storefront policy is DRM-free — safe
                     // to assert outright, unlike Steam/Epic where DRM
                     // varies per-title (see decision 0008).
-                    drm: DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport),
+                    drm: DrmRecord::drm_free(
+                        "gog",
+                        DrmDeterminationMethod::GogImport,
+                        super::GOG_POLICY_VERIFIED_ON,
+                    ),
                 });
             }
         }

@@ -57,9 +57,9 @@ pub enum DrmDeterminationMethod {
     ManualReview,
 }
 
-/// A DRM status plus where it came from. `source` and `method` are
-/// `None` together iff `status` is `Unknown` — there's nothing to cite
-/// when no determination was made at all.
+/// A DRM status plus where it came from. `source`, `method`, and
+/// `verified_on` are all `None` together iff `status` is `Unknown` —
+/// there's nothing to cite when no determination was made at all.
 #[derive(Debug, Clone, Serialize)]
 pub struct DrmRecord {
     pub status: DrmStatus,
@@ -68,6 +68,13 @@ pub struct DrmRecord {
     /// here to add (a dataset name, a publisher name, ...).
     pub source: Option<String>,
     pub method: Option<DrmDeterminationMethod>,
+    /// ISO 8601 date (`YYYY-MM-DD`) the determination was last checked
+    /// as still accurate — not when the `Game` was scanned, which
+    /// happens on every launch and would make "verified" meaningless.
+    /// A plain string rather than a date type: this project has no
+    /// date/time dependency elsewhere, and nothing here parses or does
+    /// arithmetic on it — it's a citation, not a computed value.
+    pub verified_on: Option<String>,
 }
 
 impl DrmRecord {
@@ -76,14 +83,20 @@ impl DrmRecord {
             status: DrmStatus::Unknown,
             source: None,
             method: None,
+            verified_on: None,
         }
     }
 
-    pub fn drm_free(source: impl Into<String>, method: DrmDeterminationMethod) -> Self {
+    pub fn drm_free(
+        source: impl Into<String>,
+        method: DrmDeterminationMethod,
+        verified_on: impl Into<String>,
+    ) -> Self {
         DrmRecord {
             status: DrmStatus::DrmFree,
             source: Some(source.into()),
             method: Some(method),
+            verified_on: Some(verified_on.into()),
         }
     }
 }
@@ -141,19 +154,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn unknown_record_has_no_source_or_method() {
+    fn unknown_record_has_no_source_method_or_verified_date() {
         let record = DrmRecord::unknown();
         assert_eq!(record.status, DrmStatus::Unknown);
         assert_eq!(record.source, None);
         assert_eq!(record.method, None);
+        assert_eq!(record.verified_on, None);
     }
 
     #[test]
-    fn drm_free_record_carries_source_and_method() {
-        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport);
+    fn drm_free_record_carries_source_method_and_verified_date() {
+        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport, "2026-09-02");
         assert_eq!(record.status, DrmStatus::DrmFree);
         assert_eq!(record.source.as_deref(), Some("gog"));
         assert_eq!(record.method, Some(DrmDeterminationMethod::GogImport));
+        assert_eq!(record.verified_on.as_deref(), Some("2026-09-02"));
     }
 
     // Locks in the exact wire shape the frontend depends on — a field
@@ -161,7 +176,7 @@ mod tests {
     // this test failing.
     #[test]
     fn drm_record_serializes_with_snake_case_method_and_named_fields() {
-        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport);
+        let record = DrmRecord::drm_free("gog", DrmDeterminationMethod::GogImport, "2026-09-02");
         let json = serde_json::to_value(&record).unwrap();
         assert_eq!(
             json,
@@ -169,12 +184,13 @@ mod tests {
                 "status": "drm-free",
                 "source": "gog",
                 "method": "gog_import",
+                "verified_on": "2026-09-02",
             })
         );
     }
 
     #[test]
-    fn unknown_record_serializes_source_and_method_as_null() {
+    fn unknown_record_serializes_source_method_and_verified_date_as_null() {
         let json = serde_json::to_value(DrmRecord::unknown()).unwrap();
         assert_eq!(
             json,
@@ -182,6 +198,7 @@ mod tests {
                 "status": "unknown",
                 "source": null,
                 "method": null,
+                "verified_on": null,
             })
         );
     }
