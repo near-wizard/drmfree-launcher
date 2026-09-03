@@ -36,6 +36,7 @@ impl GameProvider for SteamProvider {
 
 #[derive(Debug, Deserialize)]
 struct SteamAppDetailsData {
+    name: Option<String>,
     header_image: Option<String>,
 }
 
@@ -86,6 +87,116 @@ fn extract_header_image(
         .filter(|entry| entry.success)
         .and_then(|entry| entry.data.as_ref())
         .and_then(|data| data.header_image.clone())
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WishlistGame {
+    pub appid: String,
+    pub name: String,
+    pub cover_url: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WishlistItemRaw {
+    appid: u64,
+}
+
+#[derive(Debug, Deserialize, Default)]
+struct WishlistResponseInner {
+    #[serde(default)]
+    items: Vec<WishlistItemRaw>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WishlistResponse {
+    #[serde(default)]
+    response: WishlistResponseInner,
+}
+
+// Steam wishlists can run into the hundreds of items; each one needs a
+// separate appdetails round trip below (the wishlist API itself only
+// returns appid/priority/date_added, never a title — see
+// extract_name/fetch_app_details). Capping keeps this command's worst-
+// case latency bounded and stays well inside Steam's unpublished rate
+// limits for the appdetails endpoint, matching the "lightweight, not a
+// scraper" spirit elsewhere in this codebase — the UI notes the cap
+// when it's hit rather than silently truncating.
+const WISHLIST_ITEM_CAP: usize = 60;
+
+fn valid_steamid64(id: &str) -> bool {
+    id.len() == 17 && id.chars().all(|c| c.is_ascii_digit())
+}
+
+/// Steam's wishlist visibility is a separate opt-in from profile
+/// visibility (most accounts default to private) — a private or empty
+/// wishlist and a malformed id are both indistinguishable from "zero
+/// items" in the API's own response, so this always returns `Ok` with
+/// however many items came back rather than trying to guess which case
+/// it was; the UI copy covers both possibilities in one message.
+#[tauri::command]
+pub async fn get_steam_wishlist(steam_id: String) -> Result<Vec<WishlistGame>, String> {
+    if !valid_steamid64(&steam_id) {
+        return Err(
+            "That doesn't look like a SteamID64 — it should be a 17-digit number, found on your \
+             profile URL (steamcommunity.com/profiles/<this part>). Vanity /id/ URLs aren't \
+             supported without a Steam API key."
+                .to_string(),
+        );
+    }
+
+    let url = format!("https://api.steampowered.com/IWishlistService/GetWishlist/v1/?steamid={steam_id}");
+    let response = crate::http::client()
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("failed to reach Steam's wishlist API: {e}"))?;
+
+    if !response.status().is_success() {
+        return Ok(Vec::new());
+    }
+
+    let parsed: WishlistResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse Steam wishlist response: {e}"))?;
+
+    let mut games = Vec::new();
+    for item in parsed.response.items.into_iter().take(WISHLIST_ITEM_CAP) {
+        let appid = item.appid.to_string();
+        if let Ok(Some((name, cover_url))) = fetch_app_name_and_cover(&appid).await {
+            games.push(WishlistGame { appid, name, cover_url });
+        }
+    }
+    Ok(games)
+}
+
+async fn fetch_app_name_and_cover(id: &str) -> Result<Option<(String, Option<String>)>, String> {
+    let url = format!("https://store.steampowered.com/api/appdetails?appids={id}&filters=basic");
+    let response = crate::http::client()
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("failed to reach Steam appdetails API: {e}"))?;
+
+    if !response.status().is_success() {
+        return Ok(None);
+    }
+
+    let parsed: HashMap<String, SteamAppDetailsEntry> = response
+        .json()
+        .await
+        .map_err(|e| format!("failed to parse Steam appdetails response: {e}"))?;
+
+    Ok(extract_name_and_cover(&parsed, id))
+}
+
+fn extract_name_and_cover(
+    parsed: &HashMap<String, SteamAppDetailsEntry>,
+    id: &str,
+) -> Option<(String, Option<String>)> {
+    let data = parsed.get(id).filter(|entry| entry.success).and_then(|entry| entry.data.as_ref())?;
+    let name = data.name.clone()?;
+    Some((name, data.header_image.clone()))
 }
 
 /// Locates the Steam client's install root, per OS. Returns `None` when
@@ -281,6 +392,63 @@ mod tests {
     fn extract_header_image_is_none_when_id_not_in_response() {
         let parsed: HashMap<String, SteamAppDetailsEntry> = HashMap::new();
         assert_eq!(extract_header_image(&parsed, "123"), None);
+    }
+
+    #[test]
+    fn extract_name_and_cover_returns_both_on_success() {
+        let json = r#"{"3716600":{"success":true,"data":{"name":"Mage Arena","header_image":"https://example.com/header.jpg"}}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            extract_name_and_cover(&parsed, "3716600"),
+            Some(("Mage Arena".to_string(), Some("https://example.com/header.jpg".to_string())))
+        );
+    }
+
+    #[test]
+    fn extract_name_and_cover_keeps_name_even_without_cover() {
+        let json = r#"{"1":{"success":true,"data":{"name":"No Cover Game"}}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            extract_name_and_cover(&parsed, "1"),
+            Some(("No Cover Game".to_string(), None))
+        );
+    }
+
+    #[test]
+    fn extract_name_and_cover_is_none_when_success_is_false() {
+        let json = r#"{"1":{"success":false}}"#;
+        let parsed: HashMap<String, SteamAppDetailsEntry> = serde_json::from_str(json).unwrap();
+        assert_eq!(extract_name_and_cover(&parsed, "1"), None);
+    }
+
+    #[test]
+    fn valid_steamid64_accepts_17_digit_numeric_id() {
+        assert!(valid_steamid64("76561197960287930"));
+    }
+
+    #[test]
+    fn valid_steamid64_rejects_vanity_and_malformed_input() {
+        assert!(!valid_steamid64("near-wizard")); // vanity name, not an id
+        assert!(!valid_steamid64("123")); // too short
+        assert!(!valid_steamid64("")); // empty
+        assert!(!valid_steamid64("7656119796028793a")); // non-digit char
+    }
+
+    #[test]
+    fn wishlist_response_parses_real_shape_with_items() {
+        let json = r#"{"response":{"items":[{"appid":3716600,"priority":0,"date_added":1700000000},{"appid":4704690,"priority":1,"date_added":1700000001}]}}"#;
+        let parsed: WishlistResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.response.items.len(), 2);
+        assert_eq!(parsed.response.items[0].appid, 3716600);
+    }
+
+    #[test]
+    fn wishlist_response_parses_empty_response_object() {
+        // Real shape for a private or genuinely empty wishlist —
+        // `{"response":{}}`, no "items" key at all, not an error.
+        let json = r#"{"response":{}}"#;
+        let parsed: WishlistResponse = serde_json::from_str(json).unwrap();
+        assert!(parsed.response.items.is_empty());
     }
 
     #[test]

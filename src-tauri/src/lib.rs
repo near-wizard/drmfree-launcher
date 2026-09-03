@@ -17,6 +17,7 @@ pub fn run() {
             commands::open_install_folder,
             providers::gog::get_gog_cover_art,
             providers::steam::get_steam_cover_art,
+            providers::steam::get_steam_wishlist,
             store::search_store,
             store::list_store_sources,
             store::gog::find_gog_match,
