@@ -6,6 +6,7 @@ import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
 import { checkGogMatch } from "./lib/gogUpgradeCheck";
 import { buildReportIssueUrl } from "./lib/reportIssue";
+import { checkForUpdate, RELEASES_PAGE_URL, type UpdateCheckResult } from "./lib/checkForUpdate";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { DrmStatus, Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
@@ -30,6 +31,8 @@ function App() {
     null,
   );
   const [cacheVersion, setCacheVersion] = useState(0);
+  const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
+  const [updateDismissed, setUpdateDismissed] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -50,6 +53,10 @@ function App() {
       setProviderLabels(Object.fromEntries(providers.map((p) => [p.id, p.display_name])));
     });
     refresh();
+    // No auto-updater (that needs a signing-key setup of its own) —
+    // just a lightweight "is something newer on Releases" check,
+    // once per launch. Silently no-ops if the check fails.
+    checkForUpdate().then(setUpdateInfo);
   }, []);
 
   // "/" focuses the search box from anywhere (unless already typing
@@ -167,6 +174,19 @@ function App() {
 
   return (
     <main className="container">
+      {updateInfo?.updateAvailable && !updateDismissed && (
+        <div className="update-banner">
+          <span>
+            Update available: v{updateInfo.latestVersion} (you're on v{updateInfo.currentVersion})
+          </span>
+          <div className="update-banner-actions">
+            <button onClick={() => openUrl(RELEASES_PAGE_URL)}>Download</button>
+            <button className="update-banner-dismiss" onClick={() => setUpdateDismissed(true)}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <header className="app-header">
         <div>
           <h1>{tab === "library" ? "Your Library" : "Store"}</h1>
