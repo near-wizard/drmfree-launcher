@@ -12,9 +12,11 @@ monetization, zero accounts.
 - [x] Steam provider (detect + `steam://rungameid/` launch)
 - [x] GOG provider (detect + direct exe launch)
 - [x] Unified library UI shell
-- [x] Packaged builds (Windows verified locally: MSI + NSIS installer
-      build clean; Linux/macOS build via `.github/workflows/release.yml`
-      on GitHub Actions, not yet run since there's no pushed remote yet)
+- [x] Packaged builds — Windows (MSI/NSIS) and Linux ship via
+      `.github/workflows/release.yml` (first tag: v0.1.0). macOS is
+      paused: a clippy lint fails there that isn't reproducible
+      without real macOS CI access — see the note in
+      `.github/workflows/ci.yml`. Revisit once that's diagnosed.
 - [x] Epic provider (detect via `.item` manifests + `com.epicgames.launcher://`
       launch) — Epic is still a DRM-locked storefront (see
       `decisions/0005-drm-free-only-catalog.md`), but broader library
