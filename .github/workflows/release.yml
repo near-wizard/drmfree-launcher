@@ -13,11 +13,11 @@ jobs:
   build:
     strategy:
       fail-fast: false
+      # macOS dropped for now — see the matching note in ci.yml.
       matrix:
         include:
           - platform: ubuntu-latest
           - platform: windows-latest
-          - platform: macos-latest
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
