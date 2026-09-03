@@ -1,4 +1,5 @@
 mod commands;
+mod community;
 mod providers;
 mod store;
 
@@ -13,7 +14,9 @@ pub fn run() {
             providers::gog::get_gog_cover_art,
             store::search_store,
             store::list_store_sources,
-            store::gog::find_gog_match
+            store::gog::find_gog_match,
+            community::submit_drm_report,
+            community::get_community_consensus
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

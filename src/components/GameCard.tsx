@@ -5,6 +5,7 @@ import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch } from "../lib/gogUpgradeCheck";
 import { track } from "../lib/analytics";
 import { PawIcon } from "./PawIcon";
+import { CommunityReport } from "./CommunityReport";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
@@ -204,6 +205,7 @@ export function GameCard({
         <span className="game-name">{game.name}</span>
       </div>
       <div className="game-card-actions">
+        <CommunityReport game={game} />
         {game.provider !== "gog" && (
           <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
         )}

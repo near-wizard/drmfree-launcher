@@ -703,6 +703,36 @@ button:disabled {
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
+.community-report {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.community-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--brass-light);
+  white-space: nowrap;
+}
+
+.community-status-select {
+  min-width: 0;
+  padding: 0.3em 1.6em 0.3em 0.5em;
+  font-size: 0.68rem;
+  background-size: 8px 5px;
+  background-position: right 0.5em center;
+}
+
+.community-report-button {
+  font-size: 0.68rem;
+  padding: 0.3em 0.7em;
+  background: linear-gradient(180deg, #5c5040 0%, #35301f 100%);
+  color: var(--paper-dim);
+  border-color: var(--brass-dark);
+}
+
 .game-card button.upgrade-found-button,
 .store-card button {
   font-size: 0.72rem;
