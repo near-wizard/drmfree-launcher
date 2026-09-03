@@ -195,6 +195,26 @@ fn strip_trailing_year_suffix(title: &str) -> String {
 /// wrong title is worse than occasionally missing a real match, and a
 /// real match for an exact title is expected to rank near the top of
 /// GOG's own search relevance anyway.
+///
+/// Investigated widening this (2026-09) and deliberately didn't:
+/// - Checked whether GOG's catalog uses curly quotes/en-dashes that
+///   might cause false *negatives* against Steam's straight-ASCII
+///   title strings — confirmed empirically against the real API
+///   (searched several apostrophe'd titles) that it doesn't; GOG
+///   consistently uses plain ASCII punctuation. Nothing to normalize.
+/// - Considered prefix matching (treat catalog title as a match if it
+///   starts with the local title plus a boundary character, e.g. local
+///   "Cyberpunk 2077" matching catalog "Cyberpunk 2077: Ultimate
+///   Edition") to catch edition-qualifier suffixes. Rejected: this
+///   reintroduces exactly the false-positive risk decision 0006 warns
+///   about, just via a different mechanism than "Demo" — local "Dark
+///   Souls" would incorrectly prefix-match catalog "Dark Souls II",
+///   a genuinely different game, not an edition of the same one.
+///   Distinguishing real edition qualifiers ("Definitive Edition",
+///   "Remastered") from sequel/distinct-entry indicators ("II", ": The
+///   Sands of Time") generically is a harder problem than this
+///   deserves to be solved blind — a curated qualifier allowlist, not
+///   a prefix rule, is the safe path if this gets revisited.
 #[tauri::command]
 pub async fn find_gog_match(title: String) -> Result<Option<StoreListing>, String> {
     let query = clean_search_query(&title);
