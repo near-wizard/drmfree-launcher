@@ -25,18 +25,40 @@ export function getClientId(): string {
   }
 }
 
+// The Rust command distinguishes "not configured" (resolves to `null`)
+// from an actual failure (rejects) — so a rejection here is always a
+// real problem (offline, DNS hiccup, an overloaded free-tier tunnel
+// under a burst of concurrent requests), never the "feature is off"
+// signal. One retry after a short delay turns a single transient
+// failure into a normal result instead of permanently hiding the
+// report widget for that card for the rest of the session — found by
+// exactly that happening in testing when ~30 cards all queried a
+// free ngrok tunnel at once.
 export async function getCommunityConsensus(
   provider: string,
   gameId: string,
 ): Promise<CommunityConsensus | null> {
-  try {
-    return await invoke<CommunityConsensus | null>("get_community_consensus", {
-      provider,
-      gameId,
-    });
-  } catch {
-    return null;
+  // A large library mounts every card's consensus fetch in the same
+  // tick — spread them out a little so a big library doesn't open
+  // dozens of simultaneous connections against what might be a small
+  // free-tier backend.
+  await new Promise((resolve) => setTimeout(resolve, Math.random() * 250));
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await invoke<CommunityConsensus | null>("get_community_consensus", {
+        provider,
+        gameId,
+      });
+    } catch (e) {
+      if (attempt === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 400 + Math.random() * 400));
+        continue;
+      }
+      console.error("community consensus fetch failed after retry:", e);
+      return null;
+    }
   }
+  return null;
 }
 
 export async function submitDrmReport(

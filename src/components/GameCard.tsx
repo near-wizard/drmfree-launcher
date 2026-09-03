@@ -209,7 +209,7 @@ export function GameCard({
         {game.provider !== "gog" && (
           <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
         )}
-        <button disabled={launching} onClick={() => onLaunch(game)}>
+        <button className="play-button" disabled={launching} onClick={() => onLaunch(game)}>
           {!launching && <PawIcon />}
           {launching ? "Launching..." : "Play"}
         </button>

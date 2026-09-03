@@ -235,11 +235,13 @@ body {
   border-radius: 5px 5px 0 0;
   box-shadow: none;
   transform: none;
+  transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 
 .tab-button:hover:not(:disabled) {
   color: var(--brass-light);
   background: linear-gradient(180deg, #423727 0%, #2a2217 100%);
+  transform: translateY(-1px);
 }
 
 .tab-button-active,
@@ -379,6 +381,7 @@ body {
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   background: linear-gradient(160deg, var(--copper-light) 0%, var(--copper) 50%, var(--glow-green-dark) 100%);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) inset, 0 1px 1px rgba(0, 0, 0, 0.4);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .game-card::before,
@@ -399,13 +402,23 @@ body {
   border-radius: var(--radius);
   background: linear-gradient(180deg, var(--paper) 0%, #ddd0af 100%);
   box-shadow: var(--shadow), 0 0 0 1px var(--copper-dark);
-  transition: box-shadow 0.15s ease, transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background 0.2s ease;
   color: var(--ink);
 }
 
 .game-card:hover {
-  box-shadow: var(--shadow-hover), 0 0 0 1px var(--copper);
-  transform: translateY(-2px);
+  background: linear-gradient(180deg, #faf3e0 0%, #ecdcb3 100%);
+  box-shadow: var(--shadow-hover), 0 0 10px rgba(63, 227, 116, 0.12), 0 0 0 1px var(--copper);
+  transform: translateY(-3px);
+}
+
+.game-card:hover::before,
+.game-card:hover::after {
+  background: linear-gradient(160deg, var(--copper-light) 0%, var(--copper-light) 55%, var(--glow-green) 100%);
+  box-shadow: 0 0 6px rgba(63, 227, 116, 0.6), 0 1px 2px rgba(0, 0, 0, 0.5) inset;
 }
 
 .game-card-info {
@@ -424,6 +437,14 @@ body {
   object-fit: cover;
   background-color: var(--iron-mid);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.game-card:hover .game-thumb {
+  transform: scale(1.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  position: relative;
+  z-index: 2;
 }
 
 .game-thumb-placeholder {
@@ -457,6 +478,15 @@ body {
   text-transform: uppercase;
   padding: 0.28em 0.6em;
   border-radius: 3px;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.game-card:hover .origin-badge {
+  transform: rotate(-2deg) scale(1.05);
+}
+
+.game-card:hover .drm-badge {
+  transform: rotate(1deg) scale(1.05);
 }
 
 .origin-badge {
@@ -613,6 +643,11 @@ button {
 button:hover:not(:disabled) {
   transform: translateY(-1px) rotate(-0.5deg);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, var(--shadow-hover);
+}
+
+.play-button:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.06) rotate(-1deg);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) inset, var(--shadow-hover), 0 0 10px rgba(63, 227, 116, 0.5);
 }
 
 button:active:not(:disabled) {
@@ -798,8 +833,14 @@ button:disabled {
 }
 
 .store-card:hover {
-  box-shadow: var(--shadow-hover), 0 0 0 1px var(--copper);
-  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover), 0 0 12px rgba(63, 227, 116, 0.15), 0 0 0 1px var(--copper);
+  transform: translateY(-5px) rotate(-0.4deg);
+}
+
+.store-card:hover::before,
+.store-card:hover::after {
+  background: linear-gradient(160deg, var(--copper-light) 0%, var(--copper-light) 55%, var(--glow-green) 100%);
+  box-shadow: 0 0 6px rgba(63, 227, 116, 0.6), 0 1px 2px rgba(0, 0, 0, 0.5) inset;
 }
 
 .store-card-cover,
@@ -809,6 +850,11 @@ button:disabled {
   object-fit: cover;
   background-color: var(--iron-mid);
   position: relative;
+  transition: transform 0.3s ease;
+}
+
+.store-card:hover .store-card-cover {
+  transform: scale(1.08);
 }
 
 .store-card-cover-placeholder {
@@ -920,6 +966,13 @@ button:disabled {
   display: block;
   filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5));
   animation: bob 2.8s ease-in-out infinite;
+  transition: filter 0.2s ease;
+}
+
+.mascot:hover {
+  animation: bob 0.5s ease-in-out infinite;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 6px rgba(63, 227, 116, 0.6));
+  cursor: default;
 }
 
 @keyframes bob {
@@ -934,6 +987,7 @@ button:disabled {
 
 @media (prefers-reduced-motion: reduce) {
   .mascot,
+  .mascot:hover,
   .drm-badge::before,
   .skeleton-shimmer::after {
     animation: none;
