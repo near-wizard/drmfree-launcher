@@ -18,7 +18,17 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": {
+        "default-src": "'self'",
+        "script-src": "'self'",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: asset: https://asset.localhost https://*.akamai.steamstatic.com https://*.gog-statics.com",
+        "connect-src": "'self' ipc: https://ipc.localhost https://us.i.posthog.com https://eu.i.posthog.com",
+        "font-src": "'self'",
+        "object-src": "'none'",
+        "base-uri": "'self'",
+        "form-action": "'self'"
+      }
     }
   },
   "bundle": {
