@@ -3,7 +3,7 @@ import { recordMatch } from "./gogMatchCache";
 import type { StoreListing } from "../types/store";
 
 export type CheckResult =
-  | { status: "found"; storeUrl: string }
+  | { status: "found"; storeUrl: string; price: string | null }
   | { status: "not-found" }
   | { status: "error" };
 
@@ -26,8 +26,12 @@ export async function checkGogMatch(game: GogMatchable): Promise<CheckResult> {
   try {
     const match = await invoke<StoreListing | null>("find_gog_match", { title: game.name });
     if (match) {
-      recordMatch(game.provider, game.id, { status: "found", storeUrl: match.store_url });
-      return { status: "found", storeUrl: match.store_url };
+      recordMatch(game.provider, game.id, {
+        status: "found",
+        storeUrl: match.store_url,
+        price: match.price ?? undefined,
+      });
+      return { status: "found", storeUrl: match.store_url, price: match.price };
     }
     recordMatch(game.provider, game.id, { status: "not-found" });
     return { status: "not-found" };

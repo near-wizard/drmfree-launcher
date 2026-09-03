@@ -40,7 +40,9 @@ export function WishlistView() {
       const cached = getCachedMatch("steam", item.appid);
       if (cached) {
         seeded[item.appid] =
-          cached.status === "found" ? { status: "found", storeUrl: cached.storeUrl! } : { status: "not-found" };
+          cached.status === "found"
+            ? { status: "found", storeUrl: cached.storeUrl!, price: cached.price ?? null }
+            : { status: "not-found" };
       } else {
         seeded[item.appid] = { status: "checking" };
       }
@@ -197,15 +199,22 @@ export function WishlistView() {
         </>
       )}
 
-      {compareGame && matches[compareGame.appid]?.status === "found" && (
-        <CompareDealModal
-          gameName={compareGame.name}
-          lockedProviderId="steam"
-          lockedProviderLabel="Steam"
-          gogStoreUrl={(matches[compareGame.appid] as { status: "found"; storeUrl: string }).storeUrl}
-          onClose={() => setCompareGame(null)}
-        />
-      )}
+      {compareGame &&
+        matches[compareGame.appid]?.status === "found" &&
+        (() => {
+          const match = matches[compareGame.appid] as { status: "found"; storeUrl: string; price: string | null };
+          return (
+            <CompareDealModal
+              gameName={compareGame.name}
+              lockedProviderId="steam"
+              lockedProviderLabel="Steam"
+              lockedGameId={compareGame.appid}
+              gogStoreUrl={match.storeUrl}
+              gogPrice={match.price}
+              onClose={() => setCompareGame(null)}
+            />
+          );
+        })()}
     </div>
   );
 }

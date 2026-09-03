@@ -24,11 +24,23 @@ describe("checkGogMatch", () => {
     invokeMock.mockReset();
   });
 
-  it("caches and returns a found match", async () => {
-    invokeMock.mockResolvedValue({ store_url: "https://gog.com/game/ror" });
+  it("caches and returns a found match, including its GOG price", async () => {
+    invokeMock.mockResolvedValue({ store_url: "https://gog.com/game/ror", price: "$9.99" });
     const result = await checkGogMatch(makeGame());
-    expect(result).toEqual({ status: "found", storeUrl: "https://gog.com/game/ror" });
-    expect(getCachedMatch("steam", "1")).toMatchObject({ status: "found" });
+    expect(result).toEqual({ status: "found", storeUrl: "https://gog.com/game/ror", price: "$9.99" });
+    expect(getCachedMatch("steam", "1")).toMatchObject({ status: "found", price: "$9.99" });
+  });
+
+  it("caches a found match with no price as undefined, not a stray null", async () => {
+    invokeMock.mockResolvedValue({ store_url: "https://gog.com/game/ror", price: null });
+    const result = await checkGogMatch(makeGame());
+    expect(result).toEqual({ status: "found", storeUrl: "https://gog.com/game/ror", price: null });
+    // JSON.stringify (gogMatchCache's storage format) drops keys whose
+    // value is undefined entirely — toMatchObject with an explicit
+    // `price: undefined` expectation would fail against a key that's
+    // truly absent, not just undefined, so assert the property access
+    // directly instead.
+    expect(getCachedMatch("steam", "1")?.price).toBeUndefined();
   });
 
   it("caches and returns not-found when the backend has no match", async () => {

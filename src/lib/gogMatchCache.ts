@@ -3,6 +3,11 @@ const STORAGE_KEY = "drmfree-launcher:gog-match-cache";
 export interface GogMatchEntry {
   status: "found" | "not-found";
   storeUrl?: string;
+  /** GOG's own catalog price at the time of the check (e.g. "$9.99") —
+   *  powers CompareDealModal's savings figure. Not re-fetched on every
+   *  render, so it can drift from GOG's current price; acceptable for
+   *  a "here's roughly the deal" comparison, not a live checkout. */
+  price?: string;
   checkedAt: number;
 }
 

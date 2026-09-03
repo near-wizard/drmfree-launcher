@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
-import { checkGogMatch } from "../lib/gogUpgradeCheck";
+import { checkGogMatch, type CheckResult } from "../lib/gogUpgradeCheck";
 import { getCommunityConsensus } from "../lib/community";
 import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { track } from "../lib/analytics";
@@ -82,17 +82,13 @@ async function fetchGogCoverArt(id: string): Promise<string | null> {
 // deliberately opt-in per game (decision 0002's non-invasive spirit).
 // Results persist in localStorage (gogMatchCache) so a check made in
 // one session doesn't need repeating in the next.
-type UpgradeCheckState =
-  | { status: "idle" }
-  | { status: "checking" }
-  | { status: "found"; storeUrl: string }
-  | { status: "not-found" };
+type UpgradeCheckState = { status: "idle" } | { status: "checking" } | CheckResult;
 
 function initialUpgradeState(game: Game): UpgradeCheckState {
   const cached = getCachedMatch(game.provider, game.id);
   if (!cached) return { status: "idle" };
   return cached.status === "found"
-    ? { status: "found", storeUrl: cached.storeUrl! }
+    ? { status: "found", storeUrl: cached.storeUrl!, price: cached.price ?? null }
     : { status: "not-found" };
 }
 
@@ -165,7 +161,9 @@ function GogUpgradeCheck({
               gameName={game.name}
               lockedProviderId={game.provider}
               lockedProviderLabel={providerLabel}
+              lockedGameId={game.id}
               gogStoreUrl={state.storeUrl}
+              gogPrice={state.price}
               onClose={() => setCompareOpen(false)}
             />
           )}

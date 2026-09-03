@@ -1,7 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { track } from "../lib/analytics";
+import { comparePrices } from "../lib/price";
 import { PawIcon } from "./PawIcon";
 
 // Generic, honest bullets about what a purchase on each kind of
@@ -33,11 +35,26 @@ const GOG_TRAITS = [
   "Nothing to revoke: it's just files on your disk",
 ];
 
+// Only Steam has a working price lookup today (get_steam_price) — Epic
+// has no equivalent command yet, same gap as Epic cover art. Cached
+// across modal opens like the other appdetails-backed lookups
+// elsewhere in this codebase.
+const steamPriceCache = new Map<string, string | null>();
+
+async function fetchSteamPrice(id: string): Promise<string | null> {
+  if (steamPriceCache.has(id)) return steamPriceCache.get(id) ?? null;
+  const price = await invoke<string | null>("get_steam_price", { id }).catch(() => null);
+  steamPriceCache.set(id, price);
+  return price;
+}
+
 interface CompareDealModalProps {
   gameName: string;
   lockedProviderId: string;
   lockedProviderLabel: string;
+  lockedGameId: string;
   gogStoreUrl: string;
+  gogPrice: string | null;
   onClose: () => void;
 }
 
@@ -45,13 +62,28 @@ export function CompareDealModal({
   gameName,
   lockedProviderId,
   lockedProviderLabel,
+  lockedGameId,
   gogStoreUrl,
+  gogPrice,
   onClose,
 }: CompareDealModalProps) {
+  const [lockedPrice, setLockedPrice] = useState<string | null>(null);
+
   useEffect(() => {
     track("compare_deal_opened", { provider: lockedProviderId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (lockedProviderId !== "steam") return;
+    let cancelled = false;
+    fetchSteamPrice(lockedGameId).then((price) => {
+      if (!cancelled) setLockedPrice(price);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [lockedProviderId, lockedGameId]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -62,6 +94,7 @@ export function CompareDealModal({
   }, [onClose]);
 
   const lockedTraits = LOCKED_TRAITS[lockedProviderId] ?? LOCKED_TRAITS_GENERIC;
+  const delta = comparePrices(lockedPrice, gogPrice);
 
   // Portaled to document.body rather than rendered in place: this can
   // be opened from inside a GameCard, whose :hover transform (still
@@ -84,9 +117,18 @@ export function CompareDealModal({
           ×
         </button>
         <h2 className="compare-deal-title">{gameName}</h2>
+        {delta && delta.cheaper !== "same" && (
+          <p className="compare-deal-savings">
+            {delta.cheaper === "free"
+              ? `Save $${delta.amount.toFixed(2)} buying DRM-free on GOG`
+              : `$${delta.amount.toFixed(2)} more on GOG`}
+          </p>
+        )}
+        {delta && delta.cheaper === "same" && <p className="compare-deal-savings">Same price on both</p>}
         <div className="compare-deal-columns">
           <div className="compare-deal-column compare-deal-column-locked">
             <h3>{lockedProviderLabel}</h3>
+            <p className="compare-deal-price">{lockedPrice ?? "Price unknown"}</p>
             <ul>
               {lockedTraits.map((trait) => (
                 <li key={trait}>{trait}</li>
@@ -95,6 +137,7 @@ export function CompareDealModal({
           </div>
           <div className="compare-deal-column compare-deal-column-free">
             <h3>GOG (DRM-free)</h3>
+            <p className="compare-deal-price">{gogPrice ?? "Price unknown"}</p>
             <ul>
               {GOG_TRAITS.map((trait) => (
                 <li key={trait}>{trait}</li>

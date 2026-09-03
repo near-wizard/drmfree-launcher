@@ -1164,8 +1164,15 @@ button.upgrade-compare-button {
 
 .compare-deal-title {
   font-family: Georgia, "Times New Roman", serif;
-  margin: 0 2rem 1rem 0;
+  margin: 0 2rem 0.4rem 0;
   font-size: 1.15rem;
+}
+
+.compare-deal-savings {
+  margin: 0 0 1rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--glow-green-dark);
 }
 
 .compare-deal-columns {
@@ -1181,10 +1188,17 @@ button.upgrade-compare-button {
 }
 
 .compare-deal-column h3 {
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.3rem;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.compare-deal-price {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--ink);
 }
 
 .compare-deal-column ul {
