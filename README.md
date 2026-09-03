@@ -7,13 +7,13 @@
 [![License: MIT](https://img.shields.io/github/license/near-wizard/drmfree-launcher)](LICENSE)
 
 DRM-Free Launcher detects the games you already have installed via
-Steam, GOG, and Epic, and puts them in one list you can launch from
-directly — no new accounts, no re-linking your libraries, nothing
-sent to us. Then it does something none of those launchers will: for
-any game in your library, it checks GOG's DRM-free catalog for an
-equivalent and gives you a one-click path to buy it there instead —
-so going DRM-free is a choice you can make one game at a time, not an
-all-or-nothing migration.
+Steam, GOG, Epic, and Humble Bundle, and puts them in one list you can
+launch from directly — no new accounts, no re-linking your libraries,
+nothing sent to us. Then it does something none of those launchers
+will: for any game in your library, it checks GOG's DRM-free catalog
+for an equivalent and gives you a one-click path to buy it there
+instead — so going DRM-free is a choice you can make one game at a
+time, not an all-or-nothing migration.
 
 Read the [manifesto](MANIFESTO.md) for the argument this app is
 actually making.
@@ -35,11 +35,11 @@ analytics are opt-in and off by default — see below.
 
 ## What it does
 
-- **Unified library.** Steam, GOG, and Epic games detected from local
-  install data and launched with one click — each through that
-  storefront's own native handoff (Steam protocol URI, direct
-  executable for GOG, Epic protocol URI). Search, filter by source or
-  DRM status, sort by name/source/recently played.
+- **Unified library.** Steam, GOG, Epic, and Humble Bundle games
+  detected from local install data and launched with one click — each
+  through that storefront's own native handoff (Steam protocol URI,
+  direct executable for GOG and Humble, Epic protocol URI). Search,
+  filter by source or DRM status, sort by name/source/recently played.
 - **DRM-free upgrade finder.** Check any installed game against GOG's
   catalog — an exact-title match, not a fuzzy guess, so you won't get
   a false "yes" on a demo or the wrong edition. Match once, and it's
@@ -86,6 +86,11 @@ Launching hands off to the OS/provider's own mechanism:
   native Linux client), launches via the
   `com.epicgames.launcher://apps/<AppName>?action=launch` protocol
   handler.
+- **Humble Bundle** — Windows only for now: reads the Humble App's own
+  `config.json` state file. Humble's full catalog (outside the
+  Choice/Trove subscription tiers) is DRM-free, same storefront-wide
+  policy as GOG, so this runs the installed executable directly — see
+  [decision 0020](docs/decisions/0020-humble-provider.md).
 
 Adding a new provider means implementing the `GameProvider` trait —
 nothing in the core app or UI is storefront-specific.
