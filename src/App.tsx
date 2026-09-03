@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
 import { StoreView } from "./store/StoreView";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
-import type { Game } from "./types/game";
+import type { DrmStatus, Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
 import "./App.css";
 
@@ -19,6 +19,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [drmFilter, setDrmFilter] = useState<DrmStatus | "all">("all");
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [lastPlayed, setLastPlayed] = useState<Record<string, number>>(() => loadLastPlayedMap());
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +88,7 @@ function App() {
     const q = query.trim().toLowerCase();
     const filtered = games
       .filter((g) => providerFilter === "all" || g.provider === providerFilter)
+      .filter((g) => drmFilter === "all" || g.drm.status === drmFilter)
       .filter((g) => q === "" || g.name.toLowerCase().includes(q));
 
     switch (sortBy) {
@@ -104,7 +106,7 @@ function App() {
       default:
         return filtered.sort((a, b) => a.name.localeCompare(b.name));
     }
-  }, [games, query, providerFilter, sortBy, lastPlayed]);
+  }, [games, query, providerFilter, drmFilter, sortBy, lastPlayed]);
 
   // Enter-to-launch from the search box targets the top visible result —
   // there's no per-card keyboard focus model, so this is the "quick
@@ -177,6 +179,21 @@ function App() {
                     ` (${games.filter((g) => g.provider === p).length})`}
                 </option>
               ))}
+            </select>
+            <select
+              className="provider-filter"
+              value={drmFilter}
+              onChange={(e) => setDrmFilter(e.currentTarget.value as DrmStatus | "all")}
+              aria-label="Filter library by DRM status"
+            >
+              <option value="all">All DRM statuses ({games.length})</option>
+              <option value="drm-free">
+                DRM-Free ({games.filter((g) => g.drm.status === "drm-free").length})
+              </option>
+              <option value="drm">DRM ({games.filter((g) => g.drm.status === "drm").length})</option>
+              <option value="unknown">
+                DRM Unknown ({games.filter((g) => g.drm.status === "unknown").length})
+              </option>
             </select>
             <select
               className="sort-select"

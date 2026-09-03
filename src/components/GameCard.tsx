@@ -18,8 +18,10 @@ const DETERMINATION_LABELS: Record<DrmDeterminationMethod, string> = {
 // because "DRM-Free" alone doesn't say whether that's a verified fact
 // or a storefront-level default, so the provenance is one hover away
 // rather than hidden entirely.
-function drmTooltip(drm: DrmRecord): string | undefined {
-  if (!drm.source || !drm.method) return undefined;
+function drmTooltip(drm: DrmRecord): string {
+  if (!drm.source || !drm.method) {
+    return "No verified DRM source yet for this title (see decision 0008).";
+  }
   const verified = drm.verified_on ? ` · verified ${drm.verified_on}` : "";
   return `Source: ${drm.source} (${DETERMINATION_LABELS[drm.method]})${verified}`;
 }
