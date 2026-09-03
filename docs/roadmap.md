@@ -55,19 +55,31 @@ see `decisions/0005-drm-free-only-catalog.md`.
       verified (non-self-reported) per-title DRM-free signal in its
       API. See `decisions/0010-itchio-evaluation.md`. Revisit if
       either changes.
-- [ ] "Buy DRM-free version" upgrade prompt on detected DRM-locked
-      titles (the core loop below) — not started.
+- [x] "Buy DRM-free version" upgrade prompt on detected DRM-locked
+      titles (the core loop below) — per-game and library-wide,
+      exact-title match against GOG's catalog (see
+      `decisions/0009`/`0010` and "why title-matching stays
+      exact-only" in the commit log).
+- [x] Community DRM-status verification as a first (partial) answer to
+      the non-GOG DRM-status data source question below —
+      `decisions/0014` (the reporting feature) and `decisions/0016`
+      (feeding a strong consensus into the badge itself, not just a
+      side counter). Not the independently-compiled dataset described
+      below; a majority-vote community signal is a real but different
+      thing, and only kicks in when there's no other determination at
+      all.
 
 Core loop this unlocks: keep launching your existing (often
 DRM-locked) library, but surface a "Buy DRM-free version" prompt on
 detected titles that have a DRM-free equivalent in our catalog —
 preferring a direct publisher deal over an affiliate listing when
-both exist. See `decisions/0006-drm-free-upgrade-path.md`. Depends on
-a title-matching mechanism between locally-detected games and catalog
-entries, which doesn't exist yet, and a DRM-status data source for
-non-GOG titles — see `decisions/0008-drm-status-data-source.md`
-(PCGamingWiki's list is CC BY-NC-SA and ruled out for this use; the
-plan is an independently-compiled open dataset, not yet started).
+both exist. See `decisions/0006-drm-free-upgrade-path.md`. The
+GOG-catalog side of title-matching now exists (above); a fuller
+DRM-status data source for non-GOG titles is still an open question —
+see `decisions/0008-drm-status-data-source.md` (PCGamingWiki's list is
+CC BY-NC-SA and ruled out for this use; the plan is an
+independently-compiled open dataset, not yet started, with community
+reporting as a lighter-weight partial stand-in per `decisions/0016`).
 
 ## Stage 2b — Direct Publisher Deals (future)
 Separate, closed-source marketplace backend once Stage 2a validates

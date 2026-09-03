@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { getCommunityConsensus, submitDrmReport } from "../lib/community";
 import { track } from "../lib/analytics";
 import type { DrmStatus, Game } from "../types/game";
@@ -17,29 +17,25 @@ function consensusTooltip(consensus: CommunityConsensus): string {
   return `Community reports: ${parts.join(", ")}`;
 }
 
-// Renders nothing when no community backend is configured for this
-// build (see community.rs) — this is a deliberate "don't show a
-// feature that doesn't work" choice, not a loading bug.
-export function CommunityReport({ game }: { game: Game }) {
-  const [consensus, setConsensus] = useState<CommunityConsensus | null>(null);
-  const [loaded, setLoaded] = useState(false);
+interface CommunityReportProps {
+  game: Game;
+  /** Fetched once by the parent (GameCard also needs it to fold into
+   *  the DRM badge — see communityConsensus.ts), not by this
+   *  component, so a card only ever makes one consensus request. */
+  consensus: CommunityConsensus;
+  /** Called with the fresh consensus after a successful submission, so
+   *  the parent's badge-derivation picks up the new report too. */
+  onReported: (consensus: CommunityConsensus) => void;
+}
+
+// The parent only renders this once a non-null consensus has loaded —
+// see GameCard, which is also what makes "no community backend
+// configured for this build" a silent no-op rather than a loading bug
+// here.
+export function CommunityReport({ game, consensus, onReported }: CommunityReportProps) {
   const [reportStatus, setReportStatus] = useState<DrmStatus>("drm-free");
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    getCommunityConsensus(game.provider, game.id).then((c) => {
-      if (cancelled) return;
-      setConsensus(c);
-      setLoaded(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [game.provider, game.id]);
-
-  if (!loaded || consensus === null) return null;
 
   async function submit() {
     setSubmitting(true);
@@ -49,7 +45,7 @@ export function CommunityReport({ game }: { game: Game }) {
       setJustSubmitted(true);
       track("community_report_submitted", { status: reportStatus });
       const updated = await getCommunityConsensus(game.provider, game.id);
-      setConsensus(updated);
+      if (updated) onReported(updated);
     }
   }
 

@@ -3,10 +3,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch } from "../lib/gogUpgradeCheck";
+import { getCommunityConsensus } from "../lib/community";
+import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { track } from "../lib/analytics";
 import { PawIcon } from "./PawIcon";
 import { CommunityReport } from "./CommunityReport";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
+import type { CommunityConsensus } from "../types/community";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
   "drm-free": "DRM-Free",
@@ -166,6 +169,8 @@ export function GameCard({
 }: GameCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [gogCoverUrl, setGogCoverUrl] = useState<string | null>(null);
+  const [consensus, setConsensus] = useState<CommunityConsensus | null>(null);
+  const [consensusLoaded, setConsensusLoaded] = useState(false);
 
   useEffect(() => {
     if (game.provider !== "gog") return;
@@ -178,7 +183,24 @@ export function GameCard({
     };
   }, [game.provider, game.id]);
 
+  // Fetched once here (not inside CommunityReport) since the badge
+  // below also needs it — a game with no local DRM determination at
+  // all falls back to what the community has agreed on, closing the
+  // gap decisions 0008/0014 left open (see communityConsensus.ts).
+  useEffect(() => {
+    let cancelled = false;
+    getCommunityConsensus(game.provider, game.id).then((c) => {
+      if (cancelled) return;
+      setConsensus(c);
+      setConsensusLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.provider, game.id]);
+
   const coverUrl = steamCoverArtUrl(game) ?? gogCoverUrl;
+  const effectiveDrm = applyCommunityConsensus(game.drm, consensus);
 
   return (
     <div className="game-card">
@@ -199,13 +221,15 @@ export function GameCard({
         <span className={`origin-badge origin-${game.provider}`}>
           {providerLabels[game.provider] ?? game.provider}
         </span>
-        <span className={`drm-badge drm-${game.drm.status}`} title={drmTooltip(game.drm)}>
-          {DRM_LABELS[game.drm.status]}
+        <span className={`drm-badge drm-${effectiveDrm.status}`} title={drmTooltip(effectiveDrm)}>
+          {DRM_LABELS[effectiveDrm.status]}
         </span>
         <span className="game-name">{game.name}</span>
       </div>
       <div className="game-card-actions">
-        <CommunityReport game={game} />
+        {consensusLoaded && consensus !== null && (
+          <CommunityReport game={game} consensus={consensus} onReported={setConsensus} />
+        )}
         {game.provider !== "gog" && (
           <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
         )}
