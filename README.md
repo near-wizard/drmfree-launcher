@@ -26,9 +26,12 @@ actually making.
 
 Grab the latest installer from the
 **[Releases page](https://github.com/near-wizard/drmfree-launcher/releases)**
-— Windows (MSI/NSIS), Linux, and macOS builds. No account required, no
-auto-updater yet (check back on Releases for new versions). Anonymous
-usage analytics are opt-in and off by default — see below.
+— Windows (MSI/NSIS), Linux, and macOS builds. No account required.
+The app checks for updates and can install them in place once a
+signed release is published (see
+[`docs/decisions/0015-auto-updater.md`](docs/decisions/0015-auto-updater.md));
+until then, check back on Releases for new versions. Anonymous usage
+analytics are opt-in and off by default — see below.
 
 ## What it does
 

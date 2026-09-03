@@ -62,6 +62,13 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs bundles and emits latest.json for the in-app updater
+          # (see decision 0015). Both secrets need to exist in this
+          # repo's Settings > Secrets for signing to actually happen —
+          # tauri-action silently skips signing when they're unset, so
+          # an unsigned build doesn't fail CI, it just can't self-update.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "DRM-Free Launcher ${{ github.ref_name }}"

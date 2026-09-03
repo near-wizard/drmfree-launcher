@@ -30,6 +30,16 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/near-wizard/drmfree-launcher/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFGOEZEN0NDNUFDMEFGQjgKUldTNHI4QmF6TmVQcjlKM25GUXJpRzRIeWJnU2M5VmdnaXF6N2M0RTVLaHNoMkdvS0x5TVg0TVIK"
+    }
   }
 }

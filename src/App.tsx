@@ -8,7 +8,12 @@ import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
 import { checkGogMatch } from "./lib/gogUpgradeCheck";
 import { buildReportIssueUrl } from "./lib/reportIssue";
-import { checkForUpdate, RELEASES_PAGE_URL, type UpdateCheckResult } from "./lib/checkForUpdate";
+import {
+  checkForUpdate,
+  installUpdate,
+  RELEASES_PAGE_URL,
+  type UpdateCheckResult,
+} from "./lib/checkForUpdate";
 import { loadLastTab, saveLastTab, type Tab } from "./lib/lastTab";
 import {
   denyConsent,
@@ -48,6 +53,8 @@ function App() {
   const [cacheVersion, setCacheVersion] = useState(0);
   const [updateInfo, setUpdateInfo] = useState<UpdateCheckResult | null>(null);
   const [updateDismissed, setUpdateDismissed] = useState(false);
+  const [updateInstalling, setUpdateInstalling] = useState(false);
+  const [updateError, setUpdateError] = useState(false);
   const [consentStatus, setConsentStatus] = useState<ConsentStatus>(() => getConsentStatus());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -220,6 +227,22 @@ function App() {
     if (top && launchingId === null) launch(top);
   }
 
+  async function onUpdateNow() {
+    setUpdateInstalling(true);
+    setUpdateError(false);
+    track("update_install_started");
+    try {
+      await installUpdate();
+      // installUpdate() relaunches the app on success — nothing after
+      // this point normally runs.
+    } catch (e) {
+      console.error("update install failed:", e);
+      setUpdateInstalling(false);
+      setUpdateError(true);
+      track("update_install_failed");
+    }
+  }
+
   async function reportIssue() {
     track("report_issue_clicked");
     openUrl(await buildReportIssueUrl());
@@ -245,23 +268,33 @@ function App() {
       {updateInfo?.updateAvailable && !updateDismissed && (
         <div className="update-banner">
           <span>
-            Update available: v{updateInfo.latestVersion} (you're on v{updateInfo.currentVersion})
+            {updateError
+              ? "Update failed to install. "
+              : `Update available: v${updateInfo.latestVersion} (you're on v${updateInfo.currentVersion})`}
+            {updateError && (
+              <>
+                {" "}
+                <a href="#" onClick={(e) => { e.preventDefault(); openUrl(RELEASES_PAGE_URL); }}>
+                  Grab it from Releases instead
+                </a>
+                .
+              </>
+            )}
           </span>
           <div className="update-banner-actions">
-            <button
-              onClick={() => {
-                track("update_banner_download_clicked");
-                openUrl(RELEASES_PAGE_URL);
-              }}
-            >
-              Download
-            </button>
+            {!updateError && (
+              <button onClick={onUpdateNow} disabled={updateInstalling}>
+                {updateInstalling && <span className="spinner" aria-hidden="true" />}
+                {updateInstalling ? "Installing..." : "Update Now"}
+              </button>
+            )}
             <button
               className="update-banner-dismiss"
               onClick={() => {
                 track("update_banner_dismissed");
                 setUpdateDismissed(true);
               }}
+              disabled={updateInstalling}
             >
               Dismiss
             </button>
