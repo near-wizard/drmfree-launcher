@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { clearCachedMatch, getCachedMatch, recordMatch } from "../lib/gogMatchCache";
+import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
+import { checkGogMatch } from "../lib/gogUpgradeCheck";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
-import type { StoreListing } from "../types/store";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
   "drm-free": "DRM-Free",
@@ -72,26 +72,17 @@ function initialUpgradeState(game: Game): UpgradeCheckState {
     : { status: "not-found" };
 }
 
-function GogUpgradeCheck({ game }: { game: Game }) {
+function GogUpgradeCheck({ game, onChecked }: { game: Game; onChecked?: () => void }) {
   const [state, setState] = useState<UpgradeCheckState>(() => initialUpgradeState(game));
 
   async function check() {
     setState({ status: "checking" });
-    try {
-      const match = await invoke<StoreListing | null>("find_gog_match", { title: game.name });
-      if (match) {
-        recordMatch(game.provider, game.id, { status: "found", storeUrl: match.store_url });
-        setState({ status: "found", storeUrl: match.store_url });
-      } else {
-        recordMatch(game.provider, game.id, { status: "not-found" });
-        setState({ status: "not-found" });
-      }
-    } catch {
-      // A network/API failure isn't the same as a confirmed "no match" —
-      // don't cache it, so the next click retries instead of getting
-      // stuck showing a false negative.
-      setState({ status: "idle" });
-    }
+    const result = await checkGogMatch(game);
+    // A network/API failure isn't the same as a confirmed "no match" —
+    // reset to idle so the next click retries instead of getting stuck
+    // showing a false negative (checkGogMatch doesn't cache errors).
+    setState(result.status === "error" ? { status: "idle" } : result);
+    onChecked?.();
   }
 
   function recheck() {
@@ -141,9 +132,24 @@ interface GameCardProps {
   onLaunch: (game: Game) => void;
   launching: boolean;
   providerLabels: Record<string, string>;
+  /** Bumped after a library-wide bulk check so GogUpgradeCheck remounts
+   *  and re-reads gogMatchCache instead of staying on its stale "idle"
+   *  state from before the bulk check ran. */
+  cacheVersion?: number;
+  /** Called after this card's own "Check GOG"/recheck resolves, so the
+   *  library-wide match-count summary updates without waiting for a
+   *  bulk check. */
+  onMatchChecked?: () => void;
 }
 
-export function GameCard({ game, onLaunch, launching, providerLabels }: GameCardProps) {
+export function GameCard({
+  game,
+  onLaunch,
+  launching,
+  providerLabels,
+  cacheVersion,
+  onMatchChecked,
+}: GameCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [gogCoverUrl, setGogCoverUrl] = useState<string | null>(null);
 
@@ -185,7 +191,9 @@ export function GameCard({ game, onLaunch, launching, providerLabels }: GameCard
         <span className="game-name">{game.name}</span>
       </div>
       <div className="game-card-actions">
-        {game.provider !== "gog" && <GogUpgradeCheck game={game} />}
+        {game.provider !== "gog" && (
+          <GogUpgradeCheck key={cacheVersion} game={game} onChecked={onMatchChecked} />
+        )}
         <button disabled={launching} onClick={() => onLaunch(game)}>
           {launching ? "Launching..." : "Play"}
         </button>

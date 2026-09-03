@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
 import { StoreView } from "./store/StoreView";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
+import { getCachedMatch } from "./lib/gogMatchCache";
+import { checkGogMatch } from "./lib/gogUpgradeCheck";
 import type { DrmStatus, Game } from "./types/game";
 import type { ProviderInfo } from "./types/provider";
 import "./App.css";
@@ -22,6 +24,10 @@ function App() {
   const [drmFilter, setDrmFilter] = useState<DrmStatus | "all">("all");
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [lastPlayed, setLastPlayed] = useState<Record<string, number>>(() => loadLastPlayedMap());
+  const [bulkCheckProgress, setBulkCheckProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
+  const [cacheVersion, setCacheVersion] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   async function refresh() {
@@ -78,6 +84,42 @@ function App() {
       setLaunchingId(null);
     }
   }
+
+  // Still opt-in overall (the user explicitly clicks this), but checks
+  // a whole library in one go instead of requiring one click per game —
+  // the per-card "Check GOG" button alone doesn't scale past a handful
+  // of titles. A small delay between requests avoids hammering GOG's
+  // API; already-cached games are skipped so this only ever does new
+  // work.
+  async function checkLibraryForDrmFree() {
+    const toCheck = games.filter(
+      (g) => g.provider !== "gog" && !getCachedMatch(g.provider, g.id),
+    );
+    if (toCheck.length === 0) return;
+
+    setBulkCheckProgress({ done: 0, total: toCheck.length });
+    for (let i = 0; i < toCheck.length; i++) {
+      await checkGogMatch(toCheck[i]);
+      setBulkCheckProgress({ done: i + 1, total: toCheck.length });
+      if (i < toCheck.length - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    }
+    setBulkCheckProgress(null);
+    setCacheVersion((v) => v + 1);
+  }
+
+  // cacheVersion isn't read inside the memo body — it exists purely to
+  // force recomputation after a bulk/individual check writes to
+  // localStorage, which useMemo has no other way to observe.
+  const drmFreeMatchCount = useMemo(
+    () =>
+      games.filter(
+        (g) => g.provider !== "gog" && getCachedMatch(g.provider, g.id)?.status === "found",
+      ).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [games, cacheVersion],
+  );
 
   const availableProviders = useMemo(
     () => Array.from(new Set(games.map((g) => g.provider))).sort(),
@@ -208,6 +250,29 @@ function App() {
           </div>
         )}
 
+        {games.length > 0 && (
+          <div className="upgrade-summary-bar">
+            {bulkCheckProgress ? (
+              <span className="upgrade-check-status">
+                <span className="spinner" aria-hidden="true" />
+                Checking GOG for DRM-free versions... ({bulkCheckProgress.done}/
+                {bulkCheckProgress.total})
+              </span>
+            ) : (
+              <>
+                <button className="upgrade-check-button" onClick={checkLibraryForDrmFree}>
+                  Check library for DRM-free versions
+                </button>
+                {drmFreeMatchCount > 0 && (
+                  <span className="upgrade-summary-count">
+                    {drmFreeMatchCount} DRM-free upgrade{drmFreeMatchCount === 1 ? "" : "s"} found
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         {error && <p className="error-banner">{error}</p>}
         <GameList
           games={visibleGames}
@@ -216,6 +281,8 @@ function App() {
           providerLabels={providerLabels}
           hasAnyGames={games.length > 0}
           loading={loading}
+          cacheVersion={cacheVersion}
+          onMatchChecked={() => setCacheVersion((v) => v + 1)}
         />
       </div>
       <div hidden={tab !== "store"}>

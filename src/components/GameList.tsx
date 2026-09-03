@@ -8,6 +8,8 @@ interface GameListProps {
   providerLabels: Record<string, string>;
   hasAnyGames?: boolean;
   loading?: boolean;
+  cacheVersion?: number;
+  onMatchChecked?: () => void;
 }
 
 export function GameList({
@@ -17,6 +19,8 @@ export function GameList({
   providerLabels,
   hasAnyGames = games.length > 0,
   loading = false,
+  cacheVersion,
+  onMatchChecked,
 }: GameListProps) {
   if (loading && games.length === 0) {
     return (
@@ -57,6 +61,8 @@ export function GameList({
           onLaunch={onLaunch}
           launching={launchingId === game.id}
           providerLabels={providerLabels}
+          cacheVersion={cacheVersion}
+          onMatchChecked={onMatchChecked}
         />
       ))}
     </div>

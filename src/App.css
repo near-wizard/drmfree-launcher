@@ -130,6 +130,39 @@ body {
   margin-bottom: 1.25rem;
 }
 
+.upgrade-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.upgrade-summary-bar button.upgrade-check-button {
+  font-size: 0.85rem;
+  padding: 0.45em 0.9em;
+  color: var(--accent);
+  background-color: transparent;
+  border-color: var(--border);
+  box-shadow: var(--shadow);
+}
+
+.upgrade-summary-bar button.upgrade-check-button:hover:not(:disabled) {
+  background-color: var(--accent);
+  color: #ffffff;
+}
+
+.upgrade-summary-count {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1e7a3d;
+}
+
+@media (prefers-color-scheme: dark) {
+  .upgrade-summary-count {
+    color: #7fe3a0;
+  }
+}
+
 .search-input {
   flex: 1;
 }
