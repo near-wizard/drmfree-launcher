@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { track } from "../lib/analytics";
 import type { StoreListing } from "../types/store";
 
 export function StoreCard({ listing }: { listing: StoreListing }) {
@@ -24,7 +25,14 @@ export function StoreCard({ listing }: { listing: StoreListing }) {
         <span className="store-card-title">{listing.title}</span>
         {listing.price && <span className="store-card-price">{listing.price}</span>}
       </div>
-      <button onClick={() => openUrl(listing.store_url)}>Buy on GOG</button>
+      <button
+        onClick={() => {
+          track("store_buy_clicked");
+          openUrl(listing.store_url);
+        }}
+      >
+        Buy on GOG
+      </button>
     </div>
   );
 }

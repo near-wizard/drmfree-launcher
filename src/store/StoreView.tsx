@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { StoreListing, StoreSearchResult } from "../types/store";
 import { StoreCard } from "./StoreCard";
+import { track } from "../lib/analytics";
 
 // The backend's error strings are accurate but Rust/reqwest-flavored
 // ("error sending request for url (...): error trying to connect: ...").
@@ -33,6 +34,7 @@ export function StoreView() {
     setError(null);
 
     const handle = setTimeout(() => {
+      if (trimmed !== "") track("store_searched");
       invoke<StoreSearchResult>("search_store", {
         query: trimmed || null,
         page: 1,
@@ -59,6 +61,7 @@ export function StoreView() {
   async function loadMore() {
     const trimmed = query.trim();
     const token = searchToken.current;
+    track("store_load_more_clicked");
     setLoadingMore(true);
     try {
       const result = await invoke<StoreSearchResult>("search_store", {
@@ -95,7 +98,11 @@ export function StoreView() {
           <input
             type="checkbox"
             checked={showNsfw}
-            onChange={(e) => setShowNsfw(e.currentTarget.checked)}
+            onChange={(e) => {
+              const enabled = e.currentTarget.checked;
+              setShowNsfw(enabled);
+              track("store_nsfw_toggled", { enabled });
+            }}
           />
           Show NSFW
         </label>

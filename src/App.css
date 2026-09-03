@@ -53,6 +53,34 @@ body {
   margin-bottom: 1.5rem;
 }
 
+.consent-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75em 1em;
+  margin-bottom: 1.25rem;
+  border-radius: var(--radius);
+  background-color: var(--surface-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.consent-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.consent-banner button.consent-banner-decline {
+  background-color: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
 .update-banner {
   display: flex;
   align-items: center;
@@ -148,6 +176,12 @@ body {
 .tab-bar-tabs {
   display: flex;
   gap: 0.25rem;
+}
+
+.tab-bar-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .report-issue-button {

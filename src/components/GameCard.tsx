@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch } from "../lib/gogUpgradeCheck";
+import { track } from "../lib/analytics";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
@@ -77,11 +78,15 @@ function GogUpgradeCheck({ game, onChecked }: { game: Game; onChecked?: () => vo
 
   async function check() {
     setState({ status: "checking" });
+    track("gog_check_clicked", { provider: game.provider });
     const result = await checkGogMatch(game);
     // A network/API failure isn't the same as a confirmed "no match" —
     // reset to idle so the next click retries instead of getting stuck
     // showing a false negative (checkGogMatch doesn't cache errors).
     setState(result.status === "error" ? { status: "idle" } : result);
+    if (result.status !== "error") {
+      track("gog_check_result", { found: result.status === "found" });
+    }
     onChecked?.();
   }
 
@@ -107,7 +112,13 @@ function GogUpgradeCheck({ game, onChecked }: { game: Game; onChecked?: () => vo
     case "found":
       return (
         <span className="upgrade-check-status">
-          <button className="upgrade-found-button" onClick={() => openUrl(state.storeUrl)}>
+          <button
+            className="upgrade-found-button"
+            onClick={() => {
+              track("upgrade_buy_clicked", { provider: game.provider });
+              openUrl(state.storeUrl);
+            }}
+          >
             Buy DRM-free on GOG
           </button>
           <button className="upgrade-recheck-button" onClick={recheck} title="Check again">

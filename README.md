@@ -23,8 +23,9 @@ all-or-nothing migration.
 
 Grab the latest installer from the
 **[Releases page](https://github.com/near-wizard/drmfree-launcher/releases)**
-— Windows (MSI/NSIS), Linux, and macOS builds. No account, no telemetry, no
-auto-updater yet (check back on Releases for new versions).
+— Windows (MSI/NSIS), Linux, and macOS builds. No account required, no
+auto-updater yet (check back on Releases for new versions). Anonymous
+usage analytics are opt-in and off by default — see below.
 
 ## What it does
 
@@ -41,10 +42,16 @@ auto-updater yet (check back on Releases for new versions).
 - **Store tab.** Browse and search GOG's DRM-free catalog directly,
   with an NSFW filter on by default. Buying happens on gog.com — this
   app never touches payment or fulfillment.
-- **No accounts, no tracking.** Detection reads local install
-  manifests and registry keys only; it never calls a storefront's web
-  API to ask what you own. See
+- **No accounts.** Detection reads local install manifests and
+  registry keys only; it never calls a storefront's web API to ask
+  what you own. See
   [`docs/decisions/0002-local-scan-not-ownership-api.md`](docs/decisions/0002-local-scan-not-ownership-api.md).
+- **Opt-in analytics, off by default.** The app asks once whether to
+  enable anonymous usage analytics (which features get used); nothing
+  is sent unless you say yes, and you can flip it off anytime from the
+  "Analytics" toggle. Game names, search text, and file paths are
+  never collected. See
+  [`docs/decisions/0012-opt-in-analytics.md`](docs/decisions/0012-opt-in-analytics.md).
 
 Something missing, or found a bug? Use the **Request a change** link
 in the app — it opens a pre-filled GitHub issue with your app version
