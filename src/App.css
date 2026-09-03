@@ -365,9 +365,36 @@ button:disabled {
   margin: 0 0 1rem;
 }
 
-.store-search {
-  width: 100%;
+.store-search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin-bottom: 1.25rem;
+}
+
+.store-search {
+  flex: 1;
+  width: auto;
+}
+
+.store-nsfw-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.store-nsfw-toggle input {
+  width: auto;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  accent-color: var(--accent);
 }
 
 .store-grid {

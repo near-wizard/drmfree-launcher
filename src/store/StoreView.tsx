@@ -20,6 +20,7 @@ export function StoreView() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNsfw, setShowNsfw] = useState(false);
 
   // Bumped on every new search so a slow page-1 response that arrives after
   // the user has already typed something else doesn't clobber newer results.
@@ -32,7 +33,11 @@ export function StoreView() {
     setError(null);
 
     const handle = setTimeout(() => {
-      invoke<StoreSearchResult>("search_store", { query: trimmed || null, page: 1 })
+      invoke<StoreSearchResult>("search_store", {
+        query: trimmed || null,
+        page: 1,
+        includeNsfw: showNsfw,
+      })
         .then((result) => {
           if (searchToken.current !== token) return;
           setListings(result.listings);
@@ -49,7 +54,7 @@ export function StoreView() {
     }, 300);
 
     return () => clearTimeout(handle);
-  }, [query]);
+  }, [query, showNsfw]);
 
   async function loadMore() {
     const trimmed = query.trim();
@@ -59,6 +64,7 @@ export function StoreView() {
       const result = await invoke<StoreSearchResult>("search_store", {
         query: trimmed || null,
         page: page + 1,
+        includeNsfw: showNsfw,
       });
       if (searchToken.current !== token) return;
       setListings((prev) => [...prev, ...result.listings]);
@@ -77,13 +83,23 @@ export function StoreView() {
         Browsing GOG's DRM-free catalog. Purchases happen on gog.com — this
         app never handles payment or fulfillment.
       </p>
-      <input
-        type="text"
-        className="search-input store-search"
-        placeholder="Search GOG's DRM-free catalog..."
-        value={query}
-        onChange={(e) => setQuery(e.currentTarget.value)}
-      />
+      <div className="store-search-row">
+        <input
+          type="text"
+          className="search-input store-search"
+          placeholder="Search GOG's DRM-free catalog..."
+          value={query}
+          onChange={(e) => setQuery(e.currentTarget.value)}
+        />
+        <label className="store-nsfw-toggle">
+          <input
+            type="checkbox"
+            checked={showNsfw}
+            onChange={(e) => setShowNsfw(e.currentTarget.checked)}
+          />
+          Show NSFW
+        </label>
+      </div>
 
       {error && <p className="error-banner">{error}</p>}
 

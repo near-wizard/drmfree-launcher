@@ -24,12 +24,32 @@ struct CatalogProduct {
     price: Option<CatalogPrice>,
     #[serde(rename = "storeLink")]
     store_link: String,
+    #[serde(default)]
+    tags: Vec<CatalogTag>,
 }
 
 #[derive(Debug, Deserialize)]
 struct CatalogPrice {
     #[serde(rename = "final")]
     final_: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct CatalogTag {
+    slug: String,
+}
+
+/// GOG tag slugs that flag adult/sexual content specifically. Deliberately
+/// narrower than "Mature" alone, which GOG also applies to games that are
+/// just violent/dark themed (e.g. Cyberpunk 2077, The Witcher 3) — those
+/// aren't what an "NSFW" toggle is expected to hide.
+const NSFW_TAG_SLUGS: &[&str] = &["nsfw", "sexual-content", "nudity"];
+
+fn is_nsfw(product: &CatalogProduct) -> bool {
+    product
+        .tags
+        .iter()
+        .any(|t| NSFW_TAG_SLUGS.contains(&t.slug.as_str()))
 }
 
 /// A single storefront listing, already normalized for the UI. Every entry
@@ -57,8 +77,14 @@ pub struct StoreSearchResult {
 /// Fetches DRM-free listings from GOG's public catalog API (no API key —
 /// this is the same endpoint gog.com's own storefront uses). `query` filters
 /// by search term; `None`/empty returns trending titles. `page` is 1-based.
+/// `include_nsfw` defaults to `false` — GOG's `pages`/`total_pages` count is
+/// unfiltered, so a filtered page can come back smaller than `limit`.
 #[tauri::command]
-pub async fn search_store(query: Option<String>, page: Option<u32>) -> Result<StoreSearchResult, String> {
+pub async fn search_store(
+    query: Option<String>,
+    page: Option<u32>,
+    include_nsfw: Option<bool>,
+) -> Result<StoreSearchResult, String> {
     let page = page.unwrap_or(1).max(1);
     let page_str = page.to_string();
 
@@ -87,12 +113,17 @@ pub async fn search_store(query: Option<String>, page: Option<u32>) -> Result<St
         .await
         .map_err(|e| format!("failed to parse GOG catalog response: {e}"))?;
 
-    Ok(to_search_result(parsed, page))
+    Ok(to_search_result(parsed, page, include_nsfw.unwrap_or(false)))
 }
 
-fn to_search_result(parsed: CatalogResponse, page: u32) -> StoreSearchResult {
+fn to_search_result(parsed: CatalogResponse, page: u32, include_nsfw: bool) -> StoreSearchResult {
     StoreSearchResult {
-        listings: parsed.products.into_iter().map(to_listing).collect(),
+        listings: parsed
+            .products
+            .into_iter()
+            .filter(|p| include_nsfw || !is_nsfw(p))
+            .map(to_listing)
+            .collect(),
         page,
         total_pages: parsed.pages,
     }
@@ -118,13 +149,26 @@ mod tests {
                 "title": "The Witcher 3: Wild Hunt",
                 "coverHorizontal": "https://images.gog-statics.com/witcher3.jpg",
                 "price": { "final": "$9.99", "base": "$39.99" },
-                "storeLink": "https://www.gog.com/en/game/the_witcher_3_wild_hunt"
+                "storeLink": "https://www.gog.com/en/game/the_witcher_3_wild_hunt",
+                "tags": [{ "name": "Mature", "slug": "mature" }]
             },
             {
                 "title": "No Price Listed",
                 "coverHorizontal": null,
                 "price": null,
                 "storeLink": "https://www.gog.com/en/game/no_price_listed"
+            },
+            {
+                "title": "Being a DIK - Season 1",
+                "coverHorizontal": "https://images.gog-statics.com/dik.jpg",
+                "price": { "final": "$6.99" },
+                "storeLink": "https://www.gog.com/en/game/being_a_dik_season_1",
+                "tags": [
+                    { "name": "Mature", "slug": "mature" },
+                    { "name": "Sexual Content", "slug": "sexual-content" },
+                    { "name": "Nudity", "slug": "nudity" },
+                    { "name": "NSFW", "slug": "nsfw" }
+                ]
             }
         ],
         "pages": 7,
@@ -135,13 +179,13 @@ mod tests {
     fn parses_gog_catalog_response_shape() {
         let parsed: CatalogResponse = serde_json::from_str(SAMPLE_RESPONSE).unwrap();
         assert_eq!(parsed.pages, 7);
-        assert_eq!(parsed.products.len(), 2);
+        assert_eq!(parsed.products.len(), 3);
     }
 
     #[test]
     fn maps_product_with_price_and_cover() {
         let parsed: CatalogResponse = serde_json::from_str(SAMPLE_RESPONSE).unwrap();
-        let result = to_search_result(parsed, 1);
+        let result = to_search_result(parsed, 1, true);
 
         assert_eq!(result.page, 1);
         assert_eq!(result.total_pages, 7);
@@ -164,10 +208,38 @@ mod tests {
     #[test]
     fn maps_product_missing_price_and_cover_to_none_not_panic() {
         let parsed: CatalogResponse = serde_json::from_str(SAMPLE_RESPONSE).unwrap();
-        let result = to_search_result(parsed, 1);
+        let result = to_search_result(parsed, 1, true);
 
         let unpriced = &result.listings[1];
         assert_eq!(unpriced.price, None);
         assert_eq!(unpriced.cover_url, None);
+    }
+
+    #[test]
+    fn excludes_nsfw_tagged_products_by_default() {
+        let parsed: CatalogResponse = serde_json::from_str(SAMPLE_RESPONSE).unwrap();
+        let result = to_search_result(parsed, 1, false);
+
+        assert_eq!(result.listings.len(), 2);
+        assert!(result.listings.iter().all(|l| l.title != "Being a DIK - Season 1"));
+    }
+
+    #[test]
+    fn mature_tag_alone_is_not_treated_as_nsfw() {
+        // "Mature" covers violence/dark themes too broadly (e.g. The
+        // Witcher 3) to be what an NSFW toggle is expected to hide.
+        let parsed: CatalogResponse = serde_json::from_str(SAMPLE_RESPONSE).unwrap();
+        let result = to_search_result(parsed, 1, false);
+
+        assert!(result.listings.iter().any(|l| l.title == "The Witcher 3: Wild Hunt"));
+    }
+
+    #[test]
+    fn includes_nsfw_tagged_products_when_requested() {
+        let parsed: CatalogResponse = serde_json::from_str(SAMPLE_RESPONSE).unwrap();
+        let result = to_search_result(parsed, 1, true);
+
+        assert_eq!(result.listings.len(), 3);
+        assert!(result.listings.iter().any(|l| l.title == "Being a DIK - Season 1"));
     }
 }
