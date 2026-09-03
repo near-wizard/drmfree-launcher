@@ -23,11 +23,16 @@ impl GameProvider for EpicProvider {
     }
 
     fn launch(&self, game: &Game) -> Result<(), String> {
-        // Native protocol handoff, same shape as the Steam provider —
-        // the Epic client itself decides how to launch the game.
+        // Epic's protocol handler needs the composite
+        // "CatalogNamespace:CatalogItemId:AppName" id, not AppName
+        // alone — AppName-only opens the launcher but matches no app,
+        // so it silently does nothing rather than erroring. The
+        // composite is assembled in manifest_to_game and carried here
+        // via exe_path (this provider's only use for that field, since
+        // there's no direct exe to launch — Epic always mediates).
+        let launch_id = game.exe_path.as_deref().unwrap_or(&game.id);
         let uri = format!(
-            "com.epicgames.launcher://apps/{}?action=launch&silent=true",
-            game.id
+            "com.epicgames.launcher://apps/{launch_id}?action=launch&silent=true"
         );
         open::that(&uri).map_err(|e| format!("failed to open {uri}: {e}"))
     }
@@ -75,6 +80,14 @@ struct EpicManifest {
     /// listed as if they were games.
     #[serde(rename = "bIsApplication")]
     is_application: bool,
+    /// Together with `catalog_item_id` and `app_name`, forms the
+    /// composite id Epic's `com.epicgames.launcher://apps/<ns>:<item>:<app>`
+    /// protocol handler actually matches against — AppName alone opens
+    /// the launcher but launches nothing.
+    #[serde(rename = "CatalogNamespace")]
+    catalog_namespace: Option<String>,
+    #[serde(rename = "CatalogItemId")]
+    catalog_item_id: Option<String>,
 }
 
 fn games_from_manifests(manifests_dir: &std::path::Path) -> Vec<Game> {
@@ -100,12 +113,28 @@ fn manifest_to_game(contents: &str) -> Option<Game> {
     if !manifest.is_application {
         return None;
     }
+    // %3A-encoded to match what Epic's own launcher writes into its
+    // shortcuts/shell registrations — colons are a URI reserved
+    // character and passing them raw has been unreliable in testing.
+    let launch_id = match (&manifest.catalog_namespace, &manifest.catalog_item_id) {
+        (Some(ns), Some(item)) if !ns.is_empty() && !item.is_empty() => Some(format!(
+            "{ns}%3A{item}%3A{app}",
+            ns = ns,
+            item = item,
+            app = manifest.app_name
+        )),
+        // Older/incomplete manifests occasionally lack these fields —
+        // fall back to AppName alone rather than dropping the game
+        // from the library; it just won't launch until Epic itself
+        // repairs the manifest.
+        _ => None,
+    };
     Some(Game {
         id: manifest.app_name,
         name: manifest.display_name,
         provider: "epic",
         install_dir: manifest.install_location,
-        exe_path: None,
+        exe_path: launch_id,
         drm: DrmRecord::unknown(),
     })
 }
@@ -139,6 +168,37 @@ mod tests {
         assert_eq!(game.name, "Fortnite");
         assert_eq!(game.provider, "epic");
         assert_eq!(game.install_dir, Some("C:\\Games\\Fortnite".to_string()));
+    }
+
+    // Regression: launch() was using AppName alone in the protocol URI,
+    // which opens the Epic launcher but matches no app — it needs the
+    // composite namespace:catalogItemId:appName id instead. Caught via
+    // a real user report ("Epic games not launching but Steam does").
+    #[test]
+    fn manifest_to_game_builds_composite_launch_id_from_catalog_fields() {
+        let contents = r#"{
+            "AppName": "abc123",
+            "DisplayName": "Fortnite",
+            "bIsApplication": true,
+            "CatalogNamespace": "fn",
+            "CatalogItemId": "5cb97847cee34581afdbc445ecbc1e97"
+        }"#;
+        let game = manifest_to_game(contents).unwrap();
+        assert_eq!(
+            game.exe_path.as_deref(),
+            Some("fn%3A5cb97847cee34581afdbc445ecbc1e97%3Aabc123")
+        );
+    }
+
+    #[test]
+    fn manifest_to_game_falls_back_to_none_without_catalog_fields() {
+        let contents = r#"{
+            "AppName": "abc123",
+            "DisplayName": "Fortnite",
+            "bIsApplication": true
+        }"#;
+        let game = manifest_to_game(contents).unwrap();
+        assert_eq!(game.exe_path, None);
     }
 
     #[test]

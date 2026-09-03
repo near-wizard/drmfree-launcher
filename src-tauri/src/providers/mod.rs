@@ -123,8 +123,11 @@ pub struct Game {
     /// Matches `GameProvider::id()` of whichever provider found it.
     pub provider: &'static str,
     pub install_dir: Option<String>,
-    /// Provider-specific launch target (e.g. a direct exe path for
-    /// DRM-free providers). `None` when launch uses `id` alone, as with
+    /// Provider-specific launch target: a direct exe path for
+    /// DRM-free providers, or (for Epic) the composite
+    /// `namespace:catalogItemId:appName` id its protocol handler
+    /// actually matches against — not a filesystem path there despite
+    /// the field name. `None` when launch uses `id` alone, as with
     /// Steam's `steam://rungameid/<id>` handoff.
     pub exe_path: Option<String>,
     pub drm: DrmRecord,
