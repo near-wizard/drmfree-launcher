@@ -18,11 +18,16 @@ export function GameList({
 }: GameListProps) {
   if (games.length === 0) {
     return (
-      <p className="empty-state">
-        {hasAnyGames
-          ? "No games match your search."
-          : "No installed games found. Steam and GOG titles installed on this machine will show up here automatically."}
-      </p>
+      <div className="empty-state">
+        <span className="empty-state-icon" aria-hidden="true">
+          {hasAnyGames ? "🔍" : "🎮"}
+        </span>
+        <p>
+          {hasAnyGames
+            ? "No games match your search."
+            : "No installed games found. Steam and GOG titles installed on this machine will show up here automatically."}
+        </p>
+      </div>
     );
   }
 
