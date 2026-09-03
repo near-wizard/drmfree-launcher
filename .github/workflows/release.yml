@@ -69,6 +69,15 @@ jobs:
           # an unsigned build doesn't fail CI, it just can't self-update.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # PostHog's project API key is a public/embeddable identifier,
+          # not a secret (same category as a Stripe publishable key or
+          # a GA measurement ID) — see .env.example — so it's committed
+          # here directly rather than routed through repo Secrets. Read
+          # by `vite build` (this step's beforeBuildCommand) via
+          # import.meta.env; without it, every shipped release binary
+          # built by this workflow has the opt-in analytics feature
+          # wired up end-to-end but nowhere to actually send events.
+          VITE_POSTHOG_KEY: phc_NRgjjCp0UJUYSITRvorUezu9ax4wSIqJSDQI1N8Zadt
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "DRM-Free Launcher ${{ github.ref_name }}"
