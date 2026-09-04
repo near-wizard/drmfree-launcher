@@ -13,7 +13,8 @@ nothing sent to us. Then it does something none of those launchers
 will: for any game in your library, it checks GOG's DRM-free catalog
 for an equivalent and gives you a one-click path to buy it there
 instead — so going DRM-free is a choice you can make one game at a
-time, not an all-or-nothing migration.
+time, not an all-or-nothing migration. It'll even check your Steam
+wishlist the same way, so you can find out before you buy.
 
 Read the [manifesto](MANIFESTO.md) for the argument this app is
 actually making.
