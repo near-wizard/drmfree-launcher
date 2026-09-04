@@ -139,10 +139,13 @@ fn manifest_to_game(contents: &str) -> Option<Game> {
     // get_epic_cover_art doc comment) — extracting the icon straight
     // off the installed exe is a real, if smaller, image rather than
     // nothing at all.
+    // super::windows_path_join, not PathBuf::join: Epic manifests are
+    // always Windows-shaped data (InstallLocation/LaunchExecutable use
+    // backslashes on every platform Epic writes them from) regardless
+    // of what OS this is compiled/tested on — see that function's doc
+    // comment for the CI failure this avoids.
     let icon_source = match (&manifest.install_location, &manifest.launch_executable) {
-        (Some(dir), Some(exe)) if !exe.is_empty() => {
-            Some(PathBuf::from(dir).join(exe).to_string_lossy().to_string())
-        }
+        (Some(dir), Some(exe)) if !exe.is_empty() => Some(super::windows_path_join(dir, exe)),
         _ => None,
     };
     Some(Game {

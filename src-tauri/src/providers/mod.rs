@@ -159,6 +159,22 @@ pub struct Game {
     pub drm_axes: Option<DrmAxes>,
 }
 
+/// Joins a directory and filename using a literal backslash, not
+/// `std::path::Path::join`. Both callers (epic.rs, humble.rs) join
+/// paths that are **always Windows-shaped data** (from an Epic
+/// manifest or a Humble config.json, both Windows-only sources)
+/// regardless of what OS this code is compiled/tested on —
+/// `Path::join` instead uses the *host* OS's separator, which is
+/// correct for `gog.rs`'s Heroic-config paths (real Linux/macOS
+/// paths) but silently wrong here: it produced `dir/file.exe` on
+/// macOS/Linux CI runners for data that only ever actually exists on
+/// a Windows machine, exactly backwards from what's needed. Caught by
+/// CI, not locally, since local development happened on Windows where
+/// the bug is invisible.
+pub fn windows_path_join(dir: &str, file: &str) -> String {
+    format!("{}\\{file}", dir.trim_end_matches('\\'))
+}
+
 /// Abstraction over "a place games can be installed and launched from".
 ///
 /// Steam is the only implementation in Stage 0, but every other provider
@@ -195,6 +211,22 @@ pub fn all_providers() -> Vec<Box<dyn GameProvider>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn windows_path_join_uses_a_backslash_regardless_of_host_os() {
+        assert_eq!(
+            windows_path_join("C:\\Games\\Humble\\RiskOfRain", "RiskOfRain.exe"),
+            "C:\\Games\\Humble\\RiskOfRain\\RiskOfRain.exe",
+        );
+    }
+
+    #[test]
+    fn windows_path_join_does_not_double_up_a_trailing_backslash() {
+        assert_eq!(
+            windows_path_join("C:\\Games\\Humble\\RiskOfRain\\", "RiskOfRain.exe"),
+            "C:\\Games\\Humble\\RiskOfRain\\RiskOfRain.exe",
+        );
+    }
 
     #[test]
     fn unknown_record_has_no_source_method_or_verified_date() {

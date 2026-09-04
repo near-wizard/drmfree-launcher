@@ -134,22 +134,16 @@ fn entry_to_game(entry: &HumbleEntry, user: &HumbleUser) -> Option<Game> {
         install_dir: Some(file_path.clone()),
         // executablePath is relative to filePath in the source data —
         // must be joined, a bare executablePath alone isn't launchable.
-        exe_path: Some(
-            std::path::Path::new(&file_path)
-                .join(&executable_path)
-                .to_string_lossy()
-                .to_string(),
-        ),
+        // super::windows_path_join, not std::path::Path::join: this data
+        // is always Windows-shaped (the Humble App is Windows-only)
+        // regardless of what OS this is compiled/tested on — see that
+        // function's doc comment for the CI failure this avoids.
+        exe_path: Some(super::windows_path_join(&file_path, &executable_path)),
         // Humble has no cover-art API to call (unlike Steam's CDN guess
         // or GOG's exact product-ID lookup) — the exe-icon fallback is
         // the only cover art these ever get, so this is always the same
         // path as exe_path above.
-        icon_source: Some(
-            std::path::Path::new(&file_path)
-                .join(&executable_path)
-                .to_string_lossy()
-                .to_string(),
-        ),
+        icon_source: Some(super::windows_path_join(&file_path, &executable_path)),
         drm: DrmRecord::drm_free("humble", DrmDeterminationMethod::StorefrontImport, HUMBLE_POLICY_VERIFIED_ON),
         drm_axes: None,
     })
