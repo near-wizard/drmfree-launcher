@@ -238,6 +238,41 @@ mod tests {
         assert!(free.unwrap() > 0);
     }
 
+    // Manual verification against a real, large, real-world install —
+    // the gap decision 0031 flagged (only synthetic fixtures were
+    // available on the machine that decision was written on). Never
+    // runs in CI or a plain `cargo test`: gated behind `#[ignore]` and
+    // two env vars naming a real install this project doesn't ship or
+    // control, so there's nothing here for CI to depend on.
+    //
+    //   cargo test --release manual_verify_real_install -- --ignored --nocapture
+    //
+    // with DRMFREE_TEST_INSTALL_DIR and DRMFREE_TEST_EXE_PATH set to a
+    // real game's install directory and exe. Note: this only exercises
+    // the copy/launch/cleanup mechanics — it says nothing about whether
+    // the game itself is actually DRM-free (the two titles this was
+    // first run against, Risk of Rain and MECCHA CHAMELEON, are both
+    // Steam titles used here purely as large real-world data, not as a
+    // DRM-free claim).
+    #[tokio::test]
+    #[ignore]
+    async fn manual_verify_real_install() {
+        let install_dir = std::env::var("DRMFREE_TEST_INSTALL_DIR")
+            .expect("set DRMFREE_TEST_INSTALL_DIR to a real game's install directory");
+        let exe_path = std::env::var("DRMFREE_TEST_EXE_PATH")
+            .expect("set DRMFREE_TEST_EXE_PATH to that install's main exe");
+
+        let measured_size = dir_size(Path::new(&install_dir));
+        println!("install size: {measured_size} bytes ({:.2} MB)", measured_size as f64 / 1_048_576.0);
+
+        let start = std::time::Instant::now();
+        let result = run_portability_audit(install_dir, exe_path, 5).await;
+        println!("result: {result:?}");
+        println!("elapsed: {:?}", start.elapsed());
+
+        result.unwrap();
+    }
+
     #[tokio::test]
     async fn run_portability_audit_rejects_an_exe_path_outside_the_install_dir() {
         let install_dir = temp_dir("portability-mismatch");
