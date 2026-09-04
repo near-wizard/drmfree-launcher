@@ -1275,6 +1275,95 @@ button.upgrade-compare-button {
   justify-content: center;
 }
 
+/* ---------- Onboarding: first-run lightbox tour ---------- */
+
+.onboarding-panel {
+  width: min(480px, 90vw);
+}
+
+.onboarding-step p {
+  line-height: 1.55;
+  color: #4a4231;
+}
+
+.onboarding-hero {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.onboarding-hero .mascot {
+  width: 64px;
+  height: 64px;
+  animation: none;
+}
+
+.onboarding-platform-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.onboarding-platform-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.onboarding-platform-option input {
+  width: auto;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  accent-color: var(--copper);
+}
+
+.onboarding-feature-list {
+  margin: 0.75rem 0 0;
+  padding-left: 1.2rem;
+  line-height: 1.55;
+  color: #4a4231;
+}
+
+.onboarding-feature-list li {
+  margin-bottom: 0.5rem;
+}
+
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.onboarding-dots {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.onboarding-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--copper-dark);
+  opacity: 0.4;
+}
+
+.onboarding-dot-active {
+  opacity: 1;
+  background: var(--copper);
+  box-shadow: 0 0 4px var(--copper);
+}
+
+.onboarding-next {
+  width: auto;
+  padding: 0.55em 1.4em;
+}
+
 /* ---------- Mascot: raccoon-turtle, small whimsy touch in the header ---------- */
 
 .mascot {

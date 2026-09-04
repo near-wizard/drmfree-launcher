@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
 import { AddManualGameForm } from "./components/AddManualGameForm";
+import { OnboardingLightbox } from "./components/OnboardingLightbox";
+import { hasSeenOnboarding, markOnboardingSeen } from "./lib/onboarding";
 import { Mascot } from "./components/Mascot";
 import { PawIcon } from "./components/PawIcon";
 import { StoreView } from "./store/StoreView";
@@ -73,6 +75,7 @@ function App() {
   const [consentStatus, setConsentStatus] = useState<ConsentStatus>(() => getConsentStatus());
   const [manualGames, setManualGames] = useState<ManualGameEntry[]>(() => loadManualGames());
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Detected (games) + manually-added (manualGames) merged into one
@@ -411,8 +414,26 @@ function App() {
           <button className="report-issue-button" onClick={reportIssue}>
             Request a change
           </button>
+          <button
+            className="report-issue-button"
+            onClick={() => {
+              track("onboarding_reopened");
+              setShowOnboarding(true);
+            }}
+          >
+            Tour
+          </button>
         </div>
       </nav>
+
+      {showOnboarding && (
+        <OnboardingLightbox
+          onDone={() => {
+            markOnboardingSeen();
+            setShowOnboarding(false);
+          }}
+        />
+      )}
 
       {/* All three tabs stay mounted (hidden via CSS, not unmounted) so
           the Store tab's search/pagination state and the Wishlist
