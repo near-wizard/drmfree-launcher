@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getCommunityConsensus, submitDrmReport } from "../lib/community";
 import { track } from "../lib/analytics";
 import type { DrmStatus, Game } from "../types/game";
@@ -27,17 +27,33 @@ interface CommunityReportProps {
   /** Called with the fresh consensus after a successful submission, so
    *  the parent's badge-derivation picks up the new report too. */
   onReported: (consensus: CommunityConsensus) => void;
+  /** Set (with a fresh `shareKey`) when the parent's "Share this
+   *  result" action fires — pre-fills these into the vote state and
+   *  expands the section, but never submits anything by itself: the
+   *  human still has to click "Submit freedom test results" below,
+   *  same single conscious path into the shared pool as a manual
+   *  report (see decision 0025). */
+  prefillAxisVotes?: AxisVotes;
+  shareKey?: number;
 }
 
 // The parent only renders this once a non-null consensus has loaded —
 // see GameCard, which is also what makes "no community backend
 // configured for this build" a silent no-op rather than a loading bug
 // here.
-export function CommunityReport({ game, consensus, onReported }: CommunityReportProps) {
+export function CommunityReport({ game, consensus, onReported, prefillAxisVotes, shareKey }: CommunityReportProps) {
   const [reportStatus, setReportStatus] = useState<DrmStatus>("drm-free");
   const [axisVotes, setAxisVotes] = useState<AxisVotes>({});
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [justSubmitted, setJustSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (!prefillAxisVotes || shareKey === undefined) return;
+    setAxisVotes((prev) => ({ ...prev, ...prefillAxisVotes }));
+    setDetailsOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shareKey]);
 
   function setAxisVote(axis: keyof DrmAxes, vote: AxisVote | undefined) {
     setAxisVotes((prev) => {
@@ -85,7 +101,11 @@ export function CommunityReport({ game, consensus, onReported }: CommunityReport
       >
         {justSubmitted ? "✓" : "Report"}
       </button>
-      <details className="freedom-test-report">
+      <details
+        className="freedom-test-report"
+        open={detailsOpen}
+        onToggle={(e) => setDetailsOpen(e.currentTarget.open)}
+      >
         <summary>Report a freedom test</summary>
         {AXIS_CATEGORIES.map((category) => (
           <fieldset key={category.label} className="freedom-test-category">

@@ -3,6 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GameCard } from "./GameCard";
 import type { Game } from "../types/game";
+import { unknownAxes } from "../types/drmAxes";
+
+const UNKNOWN_AXES = unknownAxes();
 
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -180,6 +183,140 @@ describe("GameCard axis pips", () => {
     expect(container.querySelector(".axis-pips-detail")).not.toBeInTheDocument();
     await user.click(toggle);
     expect(container.querySelector(".axis-pips-detail")).toHaveTextContent("Launches offline on first run");
+  });
+});
+
+describe("GameCard local automated axis tests", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+  });
+
+  function routeInvoke(overrides: Record<string, unknown>) {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd in overrides) return Promise.resolve(overrides[cmd]);
+      return Promise.resolve(null);
+    });
+  }
+
+  it("shows the your-machine pips row once structural axes resolve for a GOG game", async () => {
+    routeInvoke({
+      structural_axes: { ...UNKNOWN_AXES, no_storefront_client: "pass", no_launcher: "pass" },
+    });
+    const { container } = render(
+      <GameCard game={makeGame({ provider: "gog" })} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".local-axis-pips-row")).toBeInTheDocument();
+    });
+  });
+
+  it("renders no your-machine pips row for a manual entry (structural_axes is never called)", async () => {
+    routeInvoke({});
+    const { container } = render(
+      <GameCard
+        game={makeGame({ provider: "manual" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(invokeMock).not.toHaveBeenCalledWith("structural_axes", expect.anything());
+    expect(container.querySelector(".local-axis-pips-row")).not.toBeInTheDocument();
+  });
+
+  it("offers the automated launch test for a GOG game with a real exe path", async () => {
+    routeInvoke({});
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    expect(await screen.findByRole("button", { name: "Run automated test" })).toBeInTheDocument();
+  });
+
+  it("does not offer the automated launch test for a Steam game (no real exe path)", async () => {
+    routeInvoke({});
+    render(
+      <GameCard
+        game={makeGame({ provider: "steam", exe_path: null })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Run automated test" })).not.toBeInTheDocument();
+  });
+
+  it("running the automated test updates the your-machine pips row without touching the community backend", async () => {
+    routeInvoke({ run_launch_smoke_test: "pass" });
+    const user = userEvent.setup();
+    const { container } = render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Run automated test" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("run_launch_smoke_test", {
+        exePath: "C:\\Games\\X\\X.exe",
+        timeoutSecs: 8,
+      });
+    });
+    await waitFor(() => {
+      expect(container.querySelector(".local-axis-pips-row")).toBeInTheDocument();
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith("submit_drm_report", expect.anything());
+  });
+
+  it("does not render Share this result before the community backend reports it isn't configured", async () => {
+    // Regression: the button used to render as soon as local axes
+    // resolved, independent of whether CommunityReport had mounted
+    // yet — a click in that window set a share signal with nothing to
+    // receive it, silently losing the share. Gating on the same
+    // consensusLoaded/consensus condition CommunityReport itself uses
+    // guarantees the button never outpaces the thing it targets.
+    routeInvoke({
+      structural_axes: { ...UNKNOWN_AXES, no_storefront_client: "pass", no_launcher: "pass" },
+      get_community_consensus: null, // backend not configured
+    });
+    render(
+      <GameCard game={makeGame({ provider: "gog" })} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    await waitFor(() => {
+      expect(screen.queryByText("your machine:")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: "Share this result" })).not.toBeInTheDocument();
+  });
+
+  it("Share this result pre-fills the community report section rather than submitting anything", async () => {
+    routeInvoke({
+      structural_axes: { ...UNKNOWN_AXES, no_storefront_client: "pass", no_launcher: "pass" },
+      get_community_consensus: { total: 0, counts: { "drm-free": 0, drm: 0, unknown: 0 }, recentNotes: [] },
+    });
+    const user = userEvent.setup();
+    render(
+      <GameCard game={makeGame({ provider: "gog" })} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    // The button itself is gated on the same consensus-loaded condition
+    // CommunityReport is, so finding it already guarantees that
+    // component exists to receive the prefill — see the fix in
+    // GameCard.tsx: sharing before the community section has loaded
+    // would otherwise fire into a component that doesn't exist yet.
+    await user.click(await screen.findByRole("button", { name: "Share this result" }));
+
+    const group = await screen.findByRole("group", { name: "Runs without the storefront client open" });
+    expect((group.children[0] as HTMLElement).className).toContain("freedom-test-vote-active");
+    expect(invokeMock).not.toHaveBeenCalledWith("submit_drm_report", expect.anything());
   });
 });
 

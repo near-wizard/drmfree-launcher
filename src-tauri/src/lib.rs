@@ -1,3 +1,4 @@
+mod axis_test;
 mod commands;
 mod community;
 mod drm_axes;
@@ -26,7 +27,9 @@ pub fn run() {
             store::list_store_sources,
             store::gog::find_gog_match,
             community::submit_drm_report,
-            community::get_community_consensus
+            community::get_community_consensus,
+            axis_test::structural_axes,
+            axis_test::run_launch_smoke_test
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

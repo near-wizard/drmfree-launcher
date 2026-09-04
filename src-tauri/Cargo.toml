@@ -32,6 +32,14 @@ tauri-plugin-process = "2.3.1"
 url = "2"
 image = { version = "0.25", default-features = false, features = ["png"] }
 base64 = "0.22"
+# Used for the launch-smoke-test axis check (axis_test.rs) — needs an
+# async, non-blocking child-process wait (tokio::process::Command +
+# tokio::time::timeout) rather than std::process's blocking
+# Child::wait, since this runs inside a #[tauri::command] async fn on
+# the shared tokio runtime tauri already provides. Already a transitive
+# dependency of tauri itself; listed explicitly since its API is used
+# directly here.
+tokio = { version = "1", features = ["process", "time", "macros", "rt-multi-thread"] }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"

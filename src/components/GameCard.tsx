@@ -6,6 +6,7 @@ import { checkGogMatch, type CheckResult } from "../lib/gogUpgradeCheck";
 import { getCommunityConsensus } from "../lib/community";
 import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { deriveAxisResults } from "../lib/drmAxesConsensus";
+import { getLocalAxisResults, runLaunchSmokeTest, runStructuralAxes, shareableVotes } from "../lib/localAxisTests";
 import { track } from "../lib/analytics";
 import { MANUAL_PROVIDER, removeManualGame } from "../lib/manualGames";
 import { getMultiplayerNeedsPlatform, setMultiplayerNeedsPlatform } from "../lib/multiplayerFlag";
@@ -14,7 +15,7 @@ import { CommunityReport } from "./CommunityReport";
 import { CompareDealModal } from "./CompareDealModal";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 import type { CommunityConsensus } from "../types/community";
-import { AXIS_CATEGORIES, AXIS_LABELS, type AxisResult, type DrmAxes } from "../types/drmAxes";
+import { AXIS_CATEGORIES, AXIS_LABELS, type AxisResult, type AxisVotes, type DrmAxes } from "../types/drmAxes";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
   "drm-free": "DRM-Free",
@@ -262,6 +263,9 @@ export function GameCard({
     getMultiplayerNeedsPlatform(game.provider, game.id),
   );
   const [axesExpanded, setAxesExpanded] = useState(false);
+  const [localAxes, setLocalAxes] = useState<DrmAxes | null>(() => getLocalAxisResults(game.provider, game.id));
+  const [smokeTestRunning, setSmokeTestRunning] = useState(false);
+  const [shareSignal, setShareSignal] = useState<{ votes: AxisVotes; key: number } | null>(null);
 
   useEffect(() => {
     if (game.provider !== "gog") return;
@@ -304,6 +308,48 @@ export function GameCard({
       cancelled = true;
     };
   }, [game.icon_source]);
+
+  // Structural axes are a free lookup, not a live test (decision 0025)
+  // — safe to run for every card unconditionally, no button needed.
+  // Skipped for manual entries, same reasoning as the consensus fetch
+  // above: their id/provider carries no provider-level guarantee
+  // either way, structural_axes would just return Unknown for them.
+  useEffect(() => {
+    if (game.provider === MANUAL_PROVIDER) return;
+    let cancelled = false;
+    runStructuralAxes(game.provider, game.id).then((axes) => {
+      if (!cancelled) setLocalAxes(axes);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.provider, game.id]);
+
+  // The launch smoke test is real automation (it actually spawns the
+  // exe) — explicit, user-triggered only, never run on mount. Only
+  // offered where game.exe_path is a real filesystem path (GOG/Humble);
+  // Steam/Epic's exe_path is a protocol-launch id, not something
+  // std::process::Command can spawn — see localAxisTests.ts's doc
+  // comment.
+  const canRunSmokeTest =
+    (game.provider === "gog" || game.provider === "humble") && !!game.exe_path;
+
+  async function runSmokeTest() {
+    if (!game.exe_path) return;
+    setSmokeTestRunning(true);
+    try {
+      await runLaunchSmokeTest(game.provider, game.id, game.exe_path);
+      track("local_axis_smoke_test_run", { provider: game.provider });
+      setLocalAxes(getLocalAxisResults(game.provider, game.id));
+    } finally {
+      setSmokeTestRunning(false);
+    }
+  }
+
+  function shareLocalResult() {
+    if (!localAxes) return;
+    setShareSignal((prev) => ({ votes: shareableVotes(localAxes), key: (prev?.key ?? 0) + 1 }));
+  }
 
   const coverUrl = steamFallbackUrl ?? steamCoverArtUrl(game) ?? gogCoverUrl ?? exeIconUrl;
   const effectiveDrm = applyCommunityConsensus(game.drm, consensus);
@@ -390,10 +436,50 @@ export function GameCard({
             )}
           </div>
         )}
+        {localAxes && Object.values(localAxes).some((r) => r !== "unknown") && (
+          <div className="local-axis-pips-row">
+            <span
+              className="local-axis-pips-toggle"
+              title="Results from this machine's own automated checks — never shared automatically (decision 0025)"
+            >
+              <span className="local-axis-pips-label">your machine:</span>
+              {AXIS_CATEGORIES.map((category) => {
+                const pip = categoryPipResult(localAxes, category.axes);
+                return (
+                  <span key={category.label} className={`axis-pip axis-pip-${pip}`} title={category.label}>
+                    {CATEGORY_PIP_SYMBOL[pip]}
+                  </span>
+                );
+              })}
+            </span>
+            {consensusLoaded && consensus !== null && (
+              <button type="button" className="local-axis-share-button" onClick={shareLocalResult}>
+                Share this result
+              </button>
+            )}
+          </div>
+        )}
+        {canRunSmokeTest && (
+          <button
+            type="button"
+            className="local-axis-test-button"
+            onClick={runSmokeTest}
+            disabled={smokeTestRunning}
+            title="Launches this game and checks whether it stays running — a smoke test, not proof of offline play (see decision 0025)"
+          >
+            {smokeTestRunning ? "Testing…" : "Run automated test"}
+          </button>
+        )}
       </div>
       <div className="game-card-actions">
         {consensusLoaded && consensus !== null && (
-          <CommunityReport game={game} consensus={consensus} onReported={setConsensus} />
+          <CommunityReport
+            game={game}
+            consensus={consensus}
+            onReported={setConsensus}
+            prefillAxisVotes={shareSignal?.votes}
+            shareKey={shareSignal?.key}
+          />
         )}
         {game.provider !== "gog" && game.provider !== MANUAL_PROVIDER && (
           <GogUpgradeCheck

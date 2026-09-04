@@ -1010,6 +1010,47 @@ button:disabled {
   color: var(--text-muted);
 }
 
+/* ---------- Local axis automation: this machine's own test results (decision 0025) ---------- */
+
+.local-axis-pips-row {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.local-axis-pips-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15em 0.4em;
+  background: transparent;
+  border: 1px dashed var(--glow-amber-dark);
+  border-radius: var(--radius);
+}
+
+.local-axis-pips-label {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--glow-amber);
+  margin-right: 0.15rem;
+}
+
+.local-axis-share-button,
+.local-axis-test-button {
+  font-size: 0.65rem;
+  padding: 0.2em 0.6em;
+  background: linear-gradient(180deg, #5c5040 0%, #35301f 100%);
+  color: var(--paper-dim);
+  border-color: var(--brass-dark);
+}
+
+.local-axis-test-button {
+  flex-basis: 100%;
+}
+
 /* ---------- Store: wood shelf of cases ---------- */
 
 .store-disclosure {
