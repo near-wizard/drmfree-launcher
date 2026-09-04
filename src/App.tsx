@@ -9,6 +9,7 @@ import { Mascot } from "./components/Mascot";
 import { PawIcon } from "./components/PawIcon";
 import { StoreView } from "./store/StoreView";
 import { WishlistView } from "./wishlist/WishlistView";
+import { PluginsView } from "./components/PluginsView";
 import { FreedomDashboard } from "./components/FreedomDashboard";
 import { loadLastPlayedMap, recordLaunch } from "./lib/lastPlayed";
 import { getCachedMatch } from "./lib/gogMatchCache";
@@ -432,7 +433,15 @@ function App() {
         <div className="app-header-title">
           <Mascot />
           <div>
-            <h1>{tab === "library" ? "Your Library" : tab === "store" ? "Store" : "Wishlist"}</h1>
+            <h1>
+              {tab === "library"
+                ? "Your Library"
+                : tab === "store"
+                  ? "Store"
+                  : tab === "wishlist"
+                    ? "Wishlist"
+                    : "Plugins"}
+            </h1>
             {tab === "library" && allGames.length > 0 && (
               <p className="header-subtitle">
                 {allGames.length} game{allGames.length === 1 ? "" : "s"} across{" "}
@@ -469,6 +478,12 @@ function App() {
             onClick={() => setTab("wishlist")}
           >
             Wishlist
+          </button>
+          <button
+            className={`tab-button ${tab === "plugins" ? "tab-button-active" : ""}`}
+            onClick={() => setTab("plugins")}
+          >
+            Plugins
           </button>
         </div>
         <div className="tab-bar-links">
@@ -643,6 +658,9 @@ function App() {
       </div>
       <div hidden={tab !== "wishlist"}>
         <WishlistView />
+      </div>
+      <div hidden={tab !== "plugins"}>
+        <PluginsView />
       </div>
     </main>
   );

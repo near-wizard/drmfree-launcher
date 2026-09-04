@@ -489,6 +489,61 @@ body {
   color: var(--ink);
 }
 
+/* ---------- Plugins tab ---------- */
+
+.plugin-list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.plugin-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1.1rem;
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--paper) 0%, #ddd0af 100%);
+  box-shadow: var(--shadow), 0 0 0 1px var(--copper-dark);
+  color: var(--ink);
+}
+
+.plugin-card-info h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1rem;
+}
+
+.plugin-card-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--ink);
+  opacity: 0.75;
+}
+
+.plugin-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.plugin-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.plugin-window {
+  max-width: 640px;
+}
+
 .game-card:hover {
   background: linear-gradient(180deg, #faf3e0 0%, #ecdcb3 100%);
   box-shadow: var(--shadow-hover), 0 0 10px rgba(63, 227, 116, 0.12), 0 0 0 1px var(--copper);
