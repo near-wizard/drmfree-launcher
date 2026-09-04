@@ -103,6 +103,7 @@ export function WishlistView() {
       <form className="wishlist-form" onSubmit={loadWishlist}>
         <input
           type="text"
+          data-tour="wishlist-input"
           className="search-input wishlist-id-input"
           placeholder="SteamID64 or profile URL"
           value={input}

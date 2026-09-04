@@ -165,6 +165,7 @@ export function StoreView() {
       <div className="store-search-row">
         <input
           type="text"
+          data-tour="store-search"
           className="search-input store-search"
           placeholder="Search the DRM-free catalog..."
           value={query}

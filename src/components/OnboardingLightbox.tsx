@@ -8,7 +8,7 @@ import {
 } from "../lib/onboarding";
 import { Mascot } from "./Mascot";
 
-const STEP_COUNT = 3;
+const STEP_COUNT = 2;
 
 const PLATFORM_OPTIONS: { id: PlatformChoice; label: string }[] = [
   { id: "steam", label: "Steam" },
@@ -22,14 +22,14 @@ interface OnboardingLightboxProps {
   onDone: () => void;
 }
 
-// A short, blocking first-run tour — portaled to document.body for
-// the same reason CompareDealModal is: a fixed-position overlay
-// nested under a hovered/transformed ancestor gets clipped to that
-// ancestor's bounds instead of the full window (found live, see that
-// component's own comment). Progressive disclosure: step 2 asks how
-// the player gets their games, and step 3 only pitches the features
-// actually relevant to that answer — the Steam wishlist
-// cross-reference means nothing to someone who never selects Steam.
+// Just the intro: a welcome screen and the "how do you get your
+// games" question. What used to be a third step here (a static bullet
+// list of features) is now FeatureTour — a live spotlight tour over
+// the real UI instead of a modal describing it, tailored by this
+// question's answer (see buildTourSteps in App.tsx). Portaled to
+// document.body for the same reason CompareDealModal is: a
+// fixed-position overlay nested under a hovered/transformed ancestor
+// gets clipped to that ancestor's bounds instead of the full window.
 export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
   const [step, setStep] = useState(0);
   const [platforms, setPlatforms] = useState<Set<PlatformChoice>>(
@@ -46,12 +46,9 @@ export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
   }
 
   function advance() {
-    if (step === 1) {
+    if (step === STEP_COUNT - 1) {
       saveOnboardingPlatforms(Array.from(platforms));
       track("onboarding_platforms_selected", { count: platforms.size });
-    }
-    if (step === STEP_COUNT - 1) {
-      track("onboarding_completed");
       onDone();
       return;
     }
@@ -62,13 +59,6 @@ export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
     track("onboarding_skipped", { step });
     onDone();
   }
-
-  // Nobody picked anything (either skipped the question, or genuinely
-  // uses none of the named platforms) — stay inclusive rather than
-  // hide a feature that might still apply to them.
-  const showEverything = platforms.size === 0;
-  const showWishlistBullet = showEverything || platforms.has("steam");
-  const showManualBullet = showEverything || platforms.has("other");
 
   return createPortal(
     <div className="compare-deal-overlay onboarding-overlay">
@@ -86,9 +76,9 @@ export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
             </div>
             <h2 className="compare-deal-title">Welcome to DRM-Free Launcher</h2>
             <p>
-              You don't own a Steam library. You own a permission slip Valve can revoke. This
-              app looks at what you already have installed and tells you, title by title, when a
-              DRM-free version is one click away.
+              You don't own a DRM-locked library. You own a permission slip the platform can
+              revoke. This app looks at what you already have installed and tells you, title by
+              title, when a DRM-free version is one click away. Let's take a quick look around.
             </p>
           </div>
         )}
@@ -96,7 +86,7 @@ export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
         {step === 1 && (
           <div className="onboarding-step">
             <h2 className="compare-deal-title">How do you get your games?</h2>
-            <p>Select any that apply — this just tailors the next screen, nothing else.</p>
+            <p>Select any that apply — this just tailors the tour that follows, nothing else.</p>
             <div className="onboarding-platform-list">
               {PLATFORM_OPTIONS.map((opt) => (
                 <label key={opt.id} className="onboarding-platform-option">
@@ -112,31 +102,6 @@ export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
           </div>
         )}
 
-        {step === 2 && (
-          <div className="onboarding-step">
-            <h2 className="compare-deal-title">What this app does for you</h2>
-            <ul className="onboarding-feature-list">
-              <li>
-                Scans Steam, GOG, Epic, and Humble Bundle installs directly off your disk — no
-                accounts, nothing uploaded unless you opt into anonymous analytics.
-              </li>
-              <li>
-                Flags when a game you own has a DRM-free twin, with a real price comparison —
-                not just "DRM-free exists somewhere."
-              </li>
-              {showWishlistBullet && (
-                <li>Checks your Steam wishlist against GOG's catalog before you ever buy.</li>
-              )}
-              {showManualBullet && (
-                <li>
-                  Lets you add DRM-free games this app can't auto-detect (itch.io purchases,
-                  for instance) by hand.
-                </li>
-              )}
-            </ul>
-          </div>
-        )}
-
         <div className="onboarding-nav">
           <div className="onboarding-dots" aria-hidden="true">
             {Array.from({ length: STEP_COUNT }, (_, i) => (
@@ -144,7 +109,7 @@ export function OnboardingLightbox({ onDone }: OnboardingLightboxProps) {
             ))}
           </div>
           <button className="compare-deal-buy-button onboarding-next" onClick={advance}>
-            {step === STEP_COUNT - 1 ? "Let's go" : "Continue"}
+            {step === STEP_COUNT - 1 ? "Start tour" : "Continue"}
           </button>
         </div>
       </div>

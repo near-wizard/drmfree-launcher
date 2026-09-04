@@ -3,7 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { GameList } from "./components/GameList";
 import { AddManualGameForm } from "./components/AddManualGameForm";
 import { OnboardingLightbox } from "./components/OnboardingLightbox";
-import { hasSeenOnboarding, markOnboardingSeen } from "./lib/onboarding";
+import { FeatureTour, type TourStep } from "./components/FeatureTour";
+import { hasSeenOnboarding, loadOnboardingPlatforms, markOnboardingSeen } from "./lib/onboarding";
 import { Mascot } from "./components/Mascot";
 import { PawIcon } from "./components/PawIcon";
 import { StoreView } from "./store/StoreView";
@@ -76,6 +77,8 @@ function App() {
   const [manualGames, setManualGames] = useState<ManualGameEntry[]>(() => loadManualGames());
   const [showAddForm, setShowAddForm] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(() => !hasSeenOnboarding());
+  const [showFeatureTour, setShowFeatureTour] = useState(false);
+  const [tourSteps, setTourSteps] = useState<TourStep[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Detected (games) + manually-added (manualGames) merged into one
@@ -307,6 +310,71 @@ function App() {
     openUrl(await buildReportIssueUrl());
   }
 
+  // Tailored by the onboarding lightbox's "how do you get your games"
+  // answer (lib/onboarding.ts) — the Steam-wishlist step means
+  // nothing to someone who never selects Steam, same reasoning
+  // decision 0021 already applies to the lightbox's own copy. Read
+  // once when the tour actually starts, not reactively, since the
+  // answer doesn't change mid-tour.
+  function buildTourSteps(): TourStep[] {
+    const platforms = new Set(loadOnboardingPlatforms());
+    const showEverything = platforms.size === 0;
+    const hasGames = allGames.length > 0;
+    const steps: TourStep[] = [];
+
+    steps.push({
+      id: "add-manual",
+      tab: "library",
+      selector: '[data-tour="add-manual-game"]',
+      title: "Own something we can't detect?",
+      body: "Games from itch.io or anywhere else without automatic detection — add them here by hand.",
+    });
+
+    if (hasGames) {
+      steps.push({
+        id: "freedom-dashboard",
+        tab: "library",
+        selector: '[data-tour="freedom-dashboard"]',
+        title: "Track your progress",
+        body: "See at a glance how much of your library is already DRM-free.",
+      });
+      steps.push({
+        id: "check-library",
+        tab: "library",
+        selector: '[data-tour="check-library"]',
+        title: "Find DRM-free upgrades",
+        body: "One click checks your whole library against GOG's catalog — matches get a real price comparison, not just a badge.",
+      });
+      steps.push({
+        id: "library-search",
+        tab: "library",
+        selector: '[data-tour="library-search"]',
+        title: "Search your library",
+        body: 'Jump to any game instantly — press "/" from anywhere to focus this.',
+      });
+    }
+
+    if (showEverything || platforms.has("steam")) {
+      steps.push({
+        id: "wishlist",
+        tab: "wishlist",
+        selector: '[data-tour="wishlist-input"]',
+        title: "Check before you buy",
+        body: "Paste your Steam wishlist and see which titles already have a DRM-free version, before you ever buy the locked one.",
+      });
+    }
+
+    steps.push({
+      id: "store",
+      tab: "store",
+      selector: '[data-tour="store-search"]',
+      title: "Browse the DRM-free catalog",
+      body: "Search GOG's full catalog directly — no account needed, and purchases happen on GOG's own site.",
+    });
+
+    return steps;
+  }
+
   return (
     <main className="container">
       {consentStatus === "unset" && (
@@ -431,7 +499,17 @@ function App() {
           onDone={() => {
             markOnboardingSeen();
             setShowOnboarding(false);
+            setTourSteps(buildTourSteps());
+            setShowFeatureTour(true);
           }}
+        />
+      )}
+      {showFeatureTour && tourSteps.length > 0 && (
+        <FeatureTour
+          steps={tourSteps}
+          currentTab={tab}
+          onChangeTab={setTab}
+          onDone={() => setShowFeatureTour(false)}
         />
       )}
 
@@ -439,9 +517,12 @@ function App() {
           the Store tab's search/pagination state and the Wishlist
           tab's loaded results survive switching to Library and back. */}
       <div hidden={tab !== "library"}>
-        <FreedomDashboard games={allGames} />
+        <div data-tour="freedom-dashboard">
+          <FreedomDashboard games={allGames} />
+        </div>
         <div className="library-controls">
           <button
+            data-tour="add-manual-game"
             className="upgrade-check-button"
             onClick={() => setShowAddForm((v) => !v)}
           >
@@ -456,6 +537,7 @@ function App() {
             <input
               ref={searchInputRef}
               type="text"
+              data-tour="library-search"
               className="search-input"
               placeholder="Search your library... (/)"
               value={query}
@@ -522,7 +604,11 @@ function App() {
               </span>
             ) : (
               <>
-                <button className="upgrade-check-button" onClick={checkLibraryForDrmFree}>
+                <button
+                  data-tour="check-library"
+                  className="upgrade-check-button"
+                  onClick={checkLibraryForDrmFree}
+                >
                   Check library for DRM-free versions
                 </button>
                 {drmFreeMatchCount > 0 && (

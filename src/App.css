@@ -1364,6 +1364,88 @@ button.upgrade-compare-button {
   padding: 0.55em 1.4em;
 }
 
+/* ---------- Feature tour: live spotlight over the real UI ---------- */
+
+.feature-tour-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  /* Deliberately click-through, everywhere — including the dimmed
+     area, not just the spotlighted element — so the app underneath
+     stays fully usable during the tour instead of fighting a modal.
+     See FeatureTour.tsx. */
+  pointer-events: none;
+}
+
+.feature-tour-spotlight {
+  position: fixed;
+  border-radius: 8px;
+  border: 2px solid var(--copper);
+  box-shadow: 0 0 0 9999px rgba(10, 8, 5, 0.72), 0 0 12px rgba(63, 227, 116, 0.5);
+  transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+
+.feature-tour-callout {
+  position: fixed;
+  width: min(300px, 80vw);
+  background: linear-gradient(180deg, var(--paper) 0%, #ddd0af 100%);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--shadow-hover), 0 0 0 1px var(--copper-dark);
+  color: var(--ink);
+  pointer-events: auto;
+}
+
+.feature-tour-callout h3 {
+  margin: 0 0 0.4rem;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+}
+
+.feature-tour-callout p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #4a4231;
+}
+
+.feature-tour-progress {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--copper-dark) !important;
+  margin-bottom: 0.3rem !important;
+}
+
+.feature-tour-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.feature-tour-skip {
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--copper-dark);
+  font-size: 0.78rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.feature-tour-skip:hover:not(:disabled) {
+  transform: none;
+  color: var(--rust);
+}
+
+.feature-tour-next {
+  width: auto;
+  padding: 0.5em 1.2em;
+}
+
 /* ---------- Mascot: raccoon-turtle, small whimsy touch in the header ---------- */
 
 .mascot {
