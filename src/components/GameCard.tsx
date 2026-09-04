@@ -10,6 +10,7 @@ import {
   getAutoSubmitAuditResults,
   getLocalAxisResults,
   runFullAudit,
+  runPortabilityAudit,
   runStructuralAxes,
   setAutoSubmitAuditResults,
   shareableVotes,
@@ -273,6 +274,8 @@ export function GameCard({
   const [localAxes, setLocalAxes] = useState<DrmAxes | null>(() => getLocalAxisResults(game.provider, game.id));
   const [auditRunning, setAuditRunning] = useState(false);
   const [autoSubmit, setAutoSubmit] = useState(() => getAutoSubmitAuditResults());
+  const [portabilityTestRunning, setPortabilityTestRunning] = useState(false);
+  const [portabilityTestError, setPortabilityTestError] = useState<string | null>(null);
   const [shareSignal, setShareSignal] = useState<{ votes: AxisVotes; key: number } | null>(null);
 
   useEffect(() => {
@@ -377,6 +380,33 @@ export function GameCard({
   function shareLocalResult() {
     if (!localAxes) return;
     setShareSignal((prev) => ({ votes: shareableVotes(localAxes), key: (prev?.key ?? 0) + 1 }));
+  }
+
+  // Separate from canRunLaunchAudit/runAudit on purpose (decision
+  // 0031): copying a whole install directory is a different order of
+  // cost (disk, time — potentially many GB and minutes) than the
+  // near-instant structural lookup and launch probe, so this stays its
+  // own explicit, clearly-labeled action rather than folding into the
+  // fast "Run audit" button. Needs a real install_dir too, not just a
+  // real exe_path — nothing to copy without one.
+  const canRunPortabilityAudit = canRunLaunchAudit && !!game.install_dir;
+
+  async function runPortabilityTest() {
+    if (!game.install_dir || !game.exe_path) return;
+    setPortabilityTestRunning(true);
+    try {
+      const result = await runPortabilityAudit(game.provider, game.id, game.install_dir, game.exe_path);
+      setLocalAxes(getLocalAxisResults(game.provider, game.id));
+      track("local_axis_portability_test_run", { provider: game.provider, result });
+      if (autoSubmit) {
+        const axes = getLocalAxisResults(game.provider, game.id);
+        if (axes) await submitAuditResult(axes);
+      }
+    } catch (e) {
+      setPortabilityTestError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPortabilityTestRunning(false);
+    }
   }
 
   const coverUrl = steamFallbackUrl ?? steamCoverArtUrl(game) ?? gogCoverUrl ?? exeIconUrl;
@@ -509,6 +539,20 @@ export function GameCard({
               <input type="checkbox" checked={autoSubmit} onChange={toggleAutoSubmit} />
               Auto-submit results
             </label>
+          </div>
+        )}
+        {canRunPortabilityAudit && (
+          <div className="local-audit-row">
+            <button
+              type="button"
+              className="local-axis-test-button local-portability-test-button"
+              onClick={runPortabilityTest}
+              disabled={portabilityTestRunning}
+              title="Copies this install to a temp location and checks the copy still launches, then deletes the copy — may take a while and use extra disk space for large games (see decision 0031)"
+            >
+              {portabilityTestRunning ? "Copying and testing…" : "Test copyable install"}
+            </button>
+            {portabilityTestError && <span className="local-portability-test-error">{portabilityTestError}</span>}
           </div>
         )}
       </div>

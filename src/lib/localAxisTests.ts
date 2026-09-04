@@ -100,6 +100,30 @@ export async function runFullAudit(provider: string, id: string, exePath: string
   return getLocalAxisResults(provider, id) ?? unknownAxes();
 }
 
+/** The `copyable_install` (D1) test — copies the install directory to
+ * a temp location and checks the copy still launches, then cleans up.
+ * Deliberately separate from `runFullAudit`/"Run audit": a multi-
+ * gigabyte install copy is a different order of cost (disk, time) than
+ * the near-instant structural lookup and launch probe, so this is its
+ * own explicit action, never bundled into the fast one — see decision
+ * 0031. `installDir` and `exePath` must both be real filesystem paths
+ * (GOG/Humble only, same restriction as the launch audit). */
+export async function runPortabilityAudit(
+  provider: string,
+  id: string,
+  installDir: string,
+  exePath: string,
+  timeoutSecs = 8,
+): Promise<AxisResult> {
+  const result = await invoke<AxisResult>("run_portability_audit", {
+    installDir,
+    exePath,
+    timeoutSecs,
+  });
+  saveLocalAxisResults(provider, id, { copyable_install: result });
+  return result;
+}
+
 const AUTO_SUBMIT_KEY = "drmfree-launcher:audit-auto-submit";
 
 /** A standing, global preference (not per-game) for whether running an

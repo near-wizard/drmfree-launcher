@@ -1123,6 +1123,15 @@ button:disabled {
   white-space: nowrap;
 }
 
+.local-portability-test-button {
+  border-color: var(--glow-amber-dark);
+}
+
+.local-portability-test-error {
+  font-size: 0.62rem;
+  color: var(--danger);
+}
+
 /* ---------- Store: wood shelf of cases ---------- */
 
 .store-disclosure {

@@ -4,6 +4,7 @@ import {
   runStructuralAxes,
   runLaunchAudit,
   runFullAudit,
+  runPortabilityAudit,
   shareableVotes,
   getAutoSubmitAuditResults,
   setAutoSubmitAuditResults,
@@ -116,6 +117,32 @@ describe("runFullAudit", () => {
     const result = await runFullAudit("steam", "1", null);
     expect(result.no_launcher).toBe("fail");
     expect(invokeMock).not.toHaveBeenCalledWith("run_launch_audit", expect.anything());
+  });
+});
+
+describe("runPortabilityAudit", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+  });
+
+  it("persists the result under copyable_install only", async () => {
+    invokeMock.mockResolvedValue("pass");
+    const result = await runPortabilityAudit("gog", "1", "C:\\Games\\X", "C:\\Games\\X\\X.exe");
+    expect(result).toBe("pass");
+    const stored = getLocalAxisResults("gog", "1")!;
+    expect(stored.copyable_install).toBe("pass");
+    expect(stored.first_launch_offline).toBe("unknown");
+  });
+
+  it("calls run_portability_audit with the install dir, exe path, and a default timeout", async () => {
+    invokeMock.mockResolvedValue("fail");
+    await runPortabilityAudit("humble", "2", "C:\\Games\\Y", "C:\\Games\\Y\\Y.exe");
+    expect(invokeMock).toHaveBeenCalledWith("run_portability_audit", {
+      installDir: "C:\\Games\\Y",
+      exePath: "C:\\Games\\Y\\Y.exe",
+      timeoutSecs: 8,
+    });
   });
 });
 

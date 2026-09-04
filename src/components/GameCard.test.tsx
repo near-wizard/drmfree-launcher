@@ -325,6 +325,76 @@ describe("GameCard local automated axis tests", () => {
     expect(invokeMock).not.toHaveBeenCalledWith("submit_drm_report", expect.anything());
   });
 
+  it("offers the portability test only when both a real exe path and install dir are known", async () => {
+    routeInvoke({});
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    expect(await screen.findByRole("button", { name: "Test copyable install" })).toBeInTheDocument();
+  });
+
+  it("does not offer the portability test without a known install dir", async () => {
+    routeInvoke({});
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: null })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "Test copyable install" })).not.toBeInTheDocument();
+  });
+
+  it("running the portability test calls run_portability_audit and updates the your-machine pips row", async () => {
+    routeInvoke({ run_portability_audit: "pass" });
+    const user = userEvent.setup();
+    const { container } = render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Test copyable install" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("run_portability_audit", {
+        installDir: "C:\\Games\\X",
+        exePath: "C:\\Games\\X\\X.exe",
+        timeoutSecs: 8,
+      });
+    });
+    await waitFor(() => {
+      expect(container.querySelector(".axis-pip-pass")).toBeInTheDocument();
+    });
+  });
+
+  it("shows an inline error when the portability test rejects (e.g. not enough disk space)", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "run_portability_audit") return Promise.reject(new Error("not enough free space"));
+      return Promise.resolve(null);
+    });
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Test copyable install" }));
+    expect(await screen.findByText("not enough free space")).toBeInTheDocument();
+  });
+
   it("does not render Share this result before the community backend reports it isn't configured", async () => {
     // Regression: the button used to render as soon as local axes
     // resolved, independent of whether CommunityReport had mounted

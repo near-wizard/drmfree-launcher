@@ -5,6 +5,7 @@ mod drm_axes;
 mod http;
 mod icon;
 mod plugins;
+mod portability_audit;
 mod providers;
 mod store;
 
@@ -31,6 +32,7 @@ pub fn run() {
             community::get_community_consensus,
             axis_test::structural_axes,
             axis_test::run_launch_audit,
+            portability_audit::run_portability_audit,
             plugins::list_plugins,
             plugins::open_plugin_window
         ])
