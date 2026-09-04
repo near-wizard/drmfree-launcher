@@ -6,6 +6,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DrmStatus } from "../types/game";
 import type { CommunityConsensus } from "../types/community";
+import type { AxisVotes } from "../types/drmAxes";
 
 const CLIENT_ID_KEY = "drmfree-launcher:community-client-id";
 
@@ -67,6 +68,7 @@ export async function submitDrmReport(
   title: string,
   status: DrmStatus,
   note?: string,
+  axes?: AxisVotes,
 ): Promise<boolean> {
   try {
     await invoke("submit_drm_report", {
@@ -76,6 +78,10 @@ export async function submitDrmReport(
       status,
       note: note || null,
       clientId: getClientId(),
+      // Omitted (undefined) rather than {} when nothing was tested —
+      // matches the Rust side skipping the field entirely for a
+      // status-only report, see community.rs's SubmitReportBody.
+      axes: axes && Object.keys(axes).length > 0 ? axes : null,
     });
     return true;
   } catch {

@@ -151,6 +151,7 @@ fn entry_to_game(entry: &HumbleEntry, user: &HumbleUser) -> Option<Game> {
                 .to_string(),
         ),
         drm: DrmRecord::drm_free("humble", DrmDeterminationMethod::StorefrontImport, HUMBLE_POLICY_VERIFIED_ON),
+        drm_axes: None,
     })
 }
 

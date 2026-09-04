@@ -111,6 +111,78 @@ describe("GameCard exe-icon cover-art fallback", () => {
   });
 });
 
+describe("GameCard axis pips", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+  });
+
+  it("renders no axis pips when there is no axis consensus data", async () => {
+    invokeMock.mockResolvedValue({ total: 4, counts: { "drm-free": 4, drm: 0, unknown: 0 }, recentNotes: [] });
+    const { container } = render(
+      <GameCard game={makeGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(container.querySelector(".axis-pips-row")).not.toBeInTheDocument();
+  });
+
+  it("shows a pass pip for a category once enough reports agree", async () => {
+    invokeMock.mockResolvedValue({
+      total: 3,
+      counts: { "drm-free": 0, drm: 0, unknown: 3 },
+      recentNotes: [],
+      axes: {
+        first_launch_offline: { pass: 3, fail: 0, total: 3 },
+        continued_offline_play: { pass: 0, fail: 0, total: 0 },
+        no_publisher_account: { pass: 0, fail: 0, total: 0 },
+        no_storefront_account: { pass: 0, fail: 0, total: 0 },
+        no_storefront_client: { pass: 0, fail: 0, total: 0 },
+        no_launcher: { pass: 0, fail: 0, total: 0 },
+        copyable_install: { pass: 0, fail: 0, total: 0 },
+        reinstallable_from_offline_media: { pass: 0, fail: 0, total: 0 },
+        no_publisher_auth_servers: { pass: 0, fail: 0, total: 0 },
+        no_third_party_services: { pass: 0, fail: 0, total: 0 },
+        no_server_dependent_core_features: { pass: 0, fail: 0, total: 0 },
+      },
+    });
+    const { container } = render(
+      <GameCard game={makeGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    await waitFor(() => {
+      expect(container.querySelector(".axis-pip-pass")).toBeInTheDocument();
+    });
+  });
+
+  it("expands to the full per-axis breakdown on click", async () => {
+    invokeMock.mockResolvedValue({
+      total: 3,
+      counts: { "drm-free": 0, drm: 0, unknown: 3 },
+      recentNotes: [],
+      axes: {
+        first_launch_offline: { pass: 3, fail: 0, total: 3 },
+        continued_offline_play: { pass: 0, fail: 0, total: 0 },
+        no_publisher_account: { pass: 0, fail: 0, total: 0 },
+        no_storefront_account: { pass: 0, fail: 0, total: 0 },
+        no_storefront_client: { pass: 0, fail: 0, total: 0 },
+        no_launcher: { pass: 0, fail: 0, total: 0 },
+        copyable_install: { pass: 0, fail: 0, total: 0 },
+        reinstallable_from_offline_media: { pass: 0, fail: 0, total: 0 },
+        no_publisher_auth_servers: { pass: 0, fail: 0, total: 0 },
+        no_third_party_services: { pass: 0, fail: 0, total: 0 },
+        no_server_dependent_core_features: { pass: 0, fail: 0, total: 0 },
+      },
+    });
+    const user = userEvent.setup();
+    const { container } = render(
+      <GameCard game={makeGame()} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    const toggle = await screen.findByTitle("Community-reported freedom test results");
+    expect(container.querySelector(".axis-pips-detail")).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(container.querySelector(".axis-pips-detail")).toHaveTextContent("Launches offline on first run");
+  });
+});
+
 describe("GameCard open-install-folder action", () => {
   beforeEach(() => {
     localStorage.clear();

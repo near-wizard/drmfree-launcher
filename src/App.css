@@ -887,6 +887,129 @@ button:disabled {
   padding: 0.4em 0.9em;
 }
 
+/* ---------- Freedom-test report: granular per-axis voting (decision 0024) ---------- */
+
+.freedom-test-report {
+  flex-basis: 100%;
+  margin-top: 0.4rem;
+}
+
+.freedom-test-report summary {
+  cursor: pointer;
+  font-size: 0.68rem;
+  color: var(--paper-dim);
+  user-select: none;
+}
+
+.freedom-test-report summary:hover {
+  color: var(--copper-light);
+}
+
+.freedom-test-category {
+  border: 1px solid var(--copper-dark);
+  border-radius: var(--radius);
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.6rem 0.5rem;
+}
+
+.freedom-test-category legend {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--brass-light);
+  padding: 0 0.3em;
+}
+
+.freedom-test-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.2rem 0;
+  font-size: 0.68rem;
+}
+
+.freedom-test-label {
+  color: var(--text-muted);
+}
+
+.freedom-test-controls {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.freedom-test-vote {
+  font-size: 0.65rem;
+  padding: 0.2em 0.6em;
+  background: linear-gradient(180deg, #5c5040 0%, #35301f 100%);
+  color: var(--paper-dim);
+  border-color: var(--brass-dark);
+}
+
+.freedom-test-vote-active {
+  background: linear-gradient(180deg, var(--copper-light) 0%, var(--copper) 100%);
+  color: var(--ink);
+  border-color: var(--copper-dark);
+  font-weight: 700;
+}
+
+.freedom-test-submit {
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+/* ---------- Axis pips: compact per-category freedom-test summary on the card ---------- */
+
+.axis-pips-row {
+  flex-basis: 100%;
+}
+
+.axis-pips-toggle {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.15em 0.4em;
+  background: transparent;
+  border: 1px solid var(--copper-dark);
+  border-radius: var(--radius);
+}
+
+.axis-pip {
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 1.1em;
+  text-align: center;
+}
+
+.axis-pip-pass {
+  color: var(--glow-green);
+}
+
+.axis-pip-fail {
+  color: var(--danger);
+}
+
+.axis-pip-partial {
+  color: var(--glow-amber);
+}
+
+.axis-pip-unknown {
+  color: var(--paper-dim);
+}
+
+.axis-pips-detail {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--copper-dark);
+  border-radius: var(--radius);
+  font-size: 0.68rem;
+}
+
+.axis-pip-detail-row {
+  padding: 0.15rem 0;
+  color: var(--text-muted);
+}
+
 /* ---------- Store: wood shelf of cases ---------- */
 
 .store-disclosure {

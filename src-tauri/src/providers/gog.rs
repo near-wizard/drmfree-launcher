@@ -203,6 +203,7 @@ mod windows {
                         DrmDeterminationMethod::StorefrontImport,
                         super::GOG_POLICY_VERIFIED_ON,
                     ),
+                    drm_axes: None,
                 });
             }
         }
@@ -385,6 +386,7 @@ mod heroic {
             // GOG's whole storefront is DRM-free regardless of which OS
             // detected the install.
             drm: DrmRecord::drm_free("gog", DrmDeterminationMethod::StorefrontImport, super::GOG_POLICY_VERIFIED_ON),
+            drm_axes: None,
         }
     }
 

@@ -1,3 +1,5 @@
+import type { DrmAxes } from "./drmAxes";
+
 export type DrmStatus = "drm-free" | "drm" | "unknown";
 
 export type DrmDeterminationMethod =
@@ -26,4 +28,10 @@ export interface Game {
    *  lookup already (Steam, GOG). */
   icon_source?: string | null;
   drm: DrmRecord;
+  /** Always `null`/absent from the backend today — see the doc comment
+   *  on `Game.drm_axes` in providers/mod.rs. Only ever populated
+   *  client-side by folding in a community-consensus lookup, same as
+   *  DrmRecord's own consensus overlay (`effectiveDrm` in
+   *  GameCard.tsx). */
+  drm_axes?: DrmAxes | null;
 }

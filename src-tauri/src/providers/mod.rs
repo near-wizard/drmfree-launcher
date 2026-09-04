@@ -3,6 +3,7 @@ pub mod gog;
 pub mod humble;
 pub mod steam;
 
+use crate::drm_axes::DrmAxes;
 use serde::Serialize;
 
 /// Whether a detected game is known to be DRM-free. This is a
@@ -147,6 +148,15 @@ pub struct Game {
     /// `None`; only Epic populates it today.
     pub icon_source: Option<String>,
     pub drm: DrmRecord,
+    /// Granular per-axis freedom-test results (see decision 0024) —
+    /// always `None` from every provider today, same as
+    /// `DrmStatus::Drm` never being constructed yet: no provider does
+    /// its own axis testing locally, this only ever comes from a
+    /// community-consensus lookup, folded in client-side exactly like
+    /// `DrmRecord`'s own community-consensus overlay (`effectiveDrm` in
+    /// GameCard.tsx). Present on the struct now so that overlay has
+    /// somewhere typed to write into without a later breaking change.
+    pub drm_axes: Option<DrmAxes>,
 }
 
 /// Abstraction over "a place games can be installed and launched from".

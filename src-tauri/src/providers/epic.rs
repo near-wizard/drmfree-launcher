@@ -153,6 +153,7 @@ fn manifest_to_game(contents: &str) -> Option<Game> {
         exe_path: launch_id,
         icon_source,
         drm: DrmRecord::unknown(),
+        drm_axes: None,
     })
 }
 

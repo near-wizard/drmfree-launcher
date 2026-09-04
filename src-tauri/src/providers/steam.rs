@@ -373,6 +373,7 @@ fn games_in_library(steamapps_dir: &Path) -> Vec<Game> {
                 // the exe-icon fallback.
                 icon_source: None,
                 drm: DrmRecord::unknown(),
+                drm_axes: None,
             })
         })
         .collect()

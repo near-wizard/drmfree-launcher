@@ -5,6 +5,7 @@ import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch, type CheckResult } from "../lib/gogUpgradeCheck";
 import { getCommunityConsensus } from "../lib/community";
 import { applyCommunityConsensus } from "../lib/communityConsensus";
+import { deriveAxisResults } from "../lib/drmAxesConsensus";
 import { track } from "../lib/analytics";
 import { MANUAL_PROVIDER, removeManualGame } from "../lib/manualGames";
 import { getMultiplayerNeedsPlatform, setMultiplayerNeedsPlatform } from "../lib/multiplayerFlag";
@@ -13,6 +14,7 @@ import { CommunityReport } from "./CommunityReport";
 import { CompareDealModal } from "./CompareDealModal";
 import type { DrmDeterminationMethod, DrmRecord, DrmStatus, Game } from "../types/game";
 import type { CommunityConsensus } from "../types/community";
+import { AXIS_CATEGORIES, AXIS_LABELS, type AxisResult, type DrmAxes } from "../types/drmAxes";
 
 const DRM_LABELS: Record<DrmStatus, string> = {
   "drm-free": "DRM-Free",
@@ -38,6 +40,29 @@ function drmTooltip(drm: DrmRecord): string {
   const verified = drm.verified_on ? ` · verified ${drm.verified_on}` : "";
   return `Source: ${drm.source} (${DETERMINATION_LABELS[drm.method]})${verified}`;
 }
+
+// Deliberately not folded into a single value the way DrmStatus is —
+// a category with mixed pass/fail axes is real, distinguishable
+// information (decision 0024), collapsing it away would recreate the
+// exact "too coarse" problem this feature exists to avoid.
+type CategoryPip = AxisResult | "partial";
+
+function categoryPipResult(axes: DrmAxes, categoryAxes: (keyof DrmAxes)[]): CategoryPip {
+  const results = categoryAxes.map((axis) => axes[axis]);
+  if (results.every((r) => r === "unknown")) return "unknown";
+  if (results.every((r) => r === "pass" || r === "unknown")) {
+    return results.some((r) => r === "pass") ? "pass" : "unknown";
+  }
+  if (results.every((r) => r === "fail" || r === "unknown")) return "fail";
+  return "partial";
+}
+
+const CATEGORY_PIP_SYMBOL: Record<CategoryPip, string> = {
+  pass: "✓",
+  fail: "✕",
+  partial: "~",
+  unknown: "?",
+};
 
 // Most Steam app IDs map directly to this public CDN header image with
 // no network round trip beyond the image itself — no API key needed,
@@ -236,6 +261,7 @@ export function GameCard({
   const [mpNeedsPlatform, setMpNeedsPlatform] = useState(() =>
     getMultiplayerNeedsPlatform(game.provider, game.id),
   );
+  const [axesExpanded, setAxesExpanded] = useState(false);
 
   useEffect(() => {
     if (game.provider !== "gog") return;
@@ -281,6 +307,8 @@ export function GameCard({
 
   const coverUrl = steamFallbackUrl ?? steamCoverArtUrl(game) ?? gogCoverUrl ?? exeIconUrl;
   const effectiveDrm = applyCommunityConsensus(game.drm, consensus);
+  const effectiveAxes = deriveAxisResults(consensus);
+  const hasAnyAxisData = Object.values(effectiveAxes).some((r) => r !== "unknown");
 
   // The fast-guess Steam URL failing isn't necessarily "no image" —
   // try the real lookup once before falling back to the placeholder.
@@ -329,6 +357,39 @@ export function GameCard({
           </span>
         )}
         <span className="game-name">{game.name}</span>
+        {hasAnyAxisData && (
+          <div className="axis-pips-row">
+            <button
+              type="button"
+              className="axis-pips-toggle"
+              onClick={() => setAxesExpanded((e) => !e)}
+              aria-expanded={axesExpanded}
+              title="Community-reported freedom test results"
+            >
+              {AXIS_CATEGORIES.map((category) => {
+                const pip = categoryPipResult(effectiveAxes, category.axes);
+                return (
+                  <span
+                    key={category.label}
+                    className={`axis-pip axis-pip-${pip}`}
+                    title={category.label}
+                  >
+                    {CATEGORY_PIP_SYMBOL[pip]}
+                  </span>
+                );
+              })}
+            </button>
+            {axesExpanded && (
+              <ul className="axis-pips-detail">
+                {AXIS_CATEGORIES.flatMap((category) => category.axes).map((axis) => (
+                  <li key={axis} className={`axis-pip-detail-row axis-pip-${effectiveAxes[axis]}`}>
+                    <span>{CATEGORY_PIP_SYMBOL[effectiveAxes[axis]]}</span> {AXIS_LABELS[axis]}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
       <div className="game-card-actions">
         {consensusLoaded && consensus !== null && (

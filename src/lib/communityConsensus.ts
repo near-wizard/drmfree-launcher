@@ -12,8 +12,10 @@ import type { CommunityConsensus } from "../types/community";
 // local record (never overrides a storefront-verified or
 // publisher-declared one), and only once there's an actual majority,
 // not a single opinionated report.
-const MIN_REPORTS = 3;
-const MIN_MAJORITY_RATIO = 0.6;
+// Exported so drmAxesConsensus.ts can reuse the exact same thresholds
+// rather than a second, potentially-drifting copy of the same guess.
+export const MIN_REPORTS = 3;
+export const MIN_MAJORITY_RATIO = 0.6;
 
 /** Returns the community-agreed DRM status, or null if there isn't
  * (yet) enough signal to call it a consensus. */

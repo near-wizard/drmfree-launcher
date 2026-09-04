@@ -1,5 +1,6 @@
 mod commands;
 mod community;
+mod drm_axes;
 mod http;
 mod icon;
 mod providers;
