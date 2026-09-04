@@ -88,6 +88,12 @@ struct EpicManifest {
     catalog_namespace: Option<String>,
     #[serde(rename = "CatalogItemId")]
     catalog_item_id: Option<String>,
+    /// The real installed exe filename, relative to `InstallLocation` —
+    /// used only as a cover-art fallback (extracting the exe's own
+    /// icon). Epic mediates every launch through its protocol handler,
+    /// so this is never used to actually launch the game.
+    #[serde(rename = "LaunchExecutable")]
+    launch_executable: Option<String>,
 }
 
 fn games_from_manifests(manifests_dir: &std::path::Path) -> Vec<Game> {
@@ -129,12 +135,23 @@ fn manifest_to_game(contents: &str) -> Option<Game> {
         // repairs the manifest.
         _ => None,
     };
+    // Epic's own storefront API isn't scanned for cover art (see
+    // get_epic_cover_art doc comment) — extracting the icon straight
+    // off the installed exe is a real, if smaller, image rather than
+    // nothing at all.
+    let icon_source = match (&manifest.install_location, &manifest.launch_executable) {
+        (Some(dir), Some(exe)) if !exe.is_empty() => {
+            Some(PathBuf::from(dir).join(exe).to_string_lossy().to_string())
+        }
+        _ => None,
+    };
     Some(Game {
         id: manifest.app_name,
         name: manifest.display_name,
         provider: "epic",
         install_dir: manifest.install_location,
         exe_path: launch_id,
+        icon_source,
         drm: DrmRecord::unknown(),
     })
 }
@@ -188,6 +205,39 @@ mod tests {
             game.exe_path.as_deref(),
             Some("fn%3A5cb97847cee34581afdbc445ecbc1e97%3Aabc123")
         );
+    }
+
+    // icon_source is a real filesystem path (InstallLocation joined
+    // with LaunchExecutable), unlike exe_path above which is a
+    // protocol-handler id — the two must not be confused with each
+    // other, since only icon_source is safe to hand to the exe-icon
+    // extractor.
+    #[test]
+    fn manifest_to_game_joins_install_location_and_launch_executable_for_icon_source() {
+        let contents = r#"{
+            "AppName": "Discus",
+            "DisplayName": "For The King",
+            "bIsApplication": true,
+            "InstallLocation": "C:\\Program Files\\Epic Games\\ForTheKing",
+            "LaunchExecutable": "FTK.exe"
+        }"#;
+        let game = manifest_to_game(contents).unwrap();
+        assert_eq!(
+            game.icon_source.as_deref(),
+            Some("C:\\Program Files\\Epic Games\\ForTheKing\\FTK.exe")
+        );
+    }
+
+    #[test]
+    fn manifest_to_game_has_no_icon_source_without_launch_executable() {
+        let contents = r#"{
+            "AppName": "abc123",
+            "DisplayName": "Fortnite",
+            "bIsApplication": true,
+            "InstallLocation": "C:\\Games\\Fortnite"
+        }"#;
+        let game = manifest_to_game(contents).unwrap();
+        assert_eq!(game.icon_source, None);
     }
 
     #[test]

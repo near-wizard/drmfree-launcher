@@ -191,6 +191,10 @@ mod windows {
                     provider: "gog",
                     install_dir: Some(path),
                     exe_path: Some(exe_path.to_string_lossy().to_string()),
+                    // GOG already has an exact-ID cover-art lookup (see
+                    // get_gog_cover_art below); no need for the exe-icon
+                    // fallback.
+                    icon_source: None,
                     // GOG's entire storefront policy is DRM-free — safe
                     // to assert outright, unlike Steam/Epic where DRM
                     // varies per-title (see decision 0008).
@@ -376,6 +380,7 @@ mod heroic {
             provider: "gog",
             install_dir: Some(entry.install_path),
             exe_path,
+            icon_source: None,
             // Same policy-level assertion as the Windows scan above —
             // GOG's whole storefront is DRM-free regardless of which OS
             // detected the install.

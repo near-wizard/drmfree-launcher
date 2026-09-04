@@ -1,6 +1,7 @@
 mod commands;
 mod community;
 mod http;
+mod icon;
 mod providers;
 mod store;
 
@@ -17,6 +18,7 @@ pub fn run() {
             commands::open_install_folder,
             providers::gog::get_gog_cover_art,
             providers::steam::get_steam_cover_art,
+            icon::get_exe_icon,
             providers::steam::get_steam_wishlist,
             providers::steam::get_steam_price,
             store::search_store,

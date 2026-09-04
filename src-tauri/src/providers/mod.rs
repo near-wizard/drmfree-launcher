@@ -138,6 +138,14 @@ pub struct Game {
     /// the field name. `None` when launch uses `id` alone, as with
     /// Steam's `steam://rungameid/<id>` handoff.
     pub exe_path: Option<String>,
+    /// A real filesystem path to the installed executable, used only as
+    /// a last-resort cover-art source (extracting the exe's own icon) —
+    /// distinct from `exe_path` because for Epic that field is already
+    /// spoken for by the protocol-handler composite id, not a real path.
+    /// Steam and GOG already have working cover-art lookups (a CDN guess
+    /// and an exact product-ID API call respectively) so they leave this
+    /// `None`; only Epic populates it today.
+    pub icon_source: Option<String>,
     pub drm: DrmRecord,
 }
 

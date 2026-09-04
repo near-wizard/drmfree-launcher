@@ -20,5 +20,10 @@ export interface Game {
   provider: string;
   install_dir: string | null;
   exe_path: string | null;
+  /** A real filesystem path to the installed exe, used only as a
+   *  cover-art fallback (extracting the exe's own icon) — see
+   *  get_exe_icon. `null` for providers with a working cover-art
+   *  lookup already (Steam, GOG). */
+  icon_source?: string | null;
   drm: DrmRecord;
 }

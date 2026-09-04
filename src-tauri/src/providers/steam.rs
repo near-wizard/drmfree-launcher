@@ -368,6 +368,10 @@ fn games_in_library(steamapps_dir: &Path) -> Vec<Game> {
                         .to_string()
                 }),
                 exe_path: None,
+                // Steam already has a CDN-guess + fallback cover-art
+                // lookup (see get_steam_cover_art below); no need for
+                // the exe-icon fallback.
+                icon_source: None,
                 drm: DrmRecord::unknown(),
             })
         })

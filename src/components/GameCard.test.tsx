@@ -72,6 +72,45 @@ describe("GameCard DRM badge with community consensus", () => {
   });
 });
 
+describe("GameCard exe-icon cover-art fallback", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+  });
+
+  it("falls back to the exe's own icon when the provider has no cover-art lookup", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_exe_icon") return Promise.resolve("data:image/png;base64,ABC");
+      return Promise.resolve(null);
+    });
+    const game = makeGame({
+      provider: "epic",
+      icon_source: "C:\\Program Files\\Epic Games\\ForTheKing\\FTK.exe",
+    });
+    const { container } = render(
+      <GameCard game={game} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_exe_icon", {
+        path: "C:\\Program Files\\Epic Games\\ForTheKing\\FTK.exe",
+      });
+    });
+    await waitFor(() => {
+      const img = container.querySelector("img.game-thumb");
+      expect(img).toHaveAttribute("src", "data:image/png;base64,ABC");
+    });
+  });
+
+  it("never calls get_exe_icon when the game has no icon_source", async () => {
+    invokeMock.mockResolvedValue(null);
+    render(
+      <GameCard game={makeGame({ provider: "steam" })} onLaunch={() => {}} launching={false} providerLabels={{}} />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    expect(invokeMock).not.toHaveBeenCalledWith("get_exe_icon", expect.anything());
+  });
+});
+
 describe("GameCard open-install-folder action", () => {
   beforeEach(() => {
     localStorage.clear();

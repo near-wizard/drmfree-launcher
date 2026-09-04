@@ -77,6 +77,22 @@ async function fetchGogCoverArt(id: string): Promise<string | null> {
   return url;
 }
 
+// Last-resort cover art for providers with no working lookup of their
+// own (today: Epic, whose real catalog is behind an OAuth wall this
+// app deliberately doesn't reverse-engineer credentials for — see
+// decision 0023). Smaller and less polished than real cover art, but
+// a real image beats the plain placeholder letter. Cached like the
+// lookups above, keyed by the exe path rather than the game id since
+// that's what the extraction actually reads.
+const exeIconCache = new Map<string, string | null>();
+
+async function fetchExeIcon(path: string): Promise<string | null> {
+  if (exeIconCache.has(path)) return exeIconCache.get(path) ?? null;
+  const url = await invoke<string | null>("get_exe_icon", { path }).catch(() => null);
+  exeIconCache.set(path, url);
+  return url;
+}
+
 // On-demand, not automatic — checking every installed game against
 // GOG's catalog the moment the library loads would mean dozens of
 // outbound requests on every launch for a large library. This is the
@@ -212,6 +228,7 @@ export function GameCard({
 }: GameCardProps) {
   const [imageFailed, setImageFailed] = useState(false);
   const [gogCoverUrl, setGogCoverUrl] = useState<string | null>(null);
+  const [exeIconUrl, setExeIconUrl] = useState<string | null>(null);
   const [steamFallbackUrl, setSteamFallbackUrl] = useState<string | null>(null);
   const [steamFallbackTried, setSteamFallbackTried] = useState(false);
   const [consensus, setConsensus] = useState<CommunityConsensus | null>(null);
@@ -251,7 +268,18 @@ export function GameCard({
     };
   }, [game.provider, game.id]);
 
-  const coverUrl = steamFallbackUrl ?? steamCoverArtUrl(game) ?? gogCoverUrl;
+  useEffect(() => {
+    if (!game.icon_source) return;
+    let cancelled = false;
+    fetchExeIcon(game.icon_source).then((url) => {
+      if (!cancelled) setExeIconUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.icon_source]);
+
+  const coverUrl = steamFallbackUrl ?? steamCoverArtUrl(game) ?? gogCoverUrl ?? exeIconUrl;
   const effectiveDrm = applyCommunityConsensus(game.drm, consensus);
 
   // The fast-guess Steam URL failing isn't necessarily "no image" —

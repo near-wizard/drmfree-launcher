@@ -140,6 +140,16 @@ fn entry_to_game(entry: &HumbleEntry, user: &HumbleUser) -> Option<Game> {
                 .to_string_lossy()
                 .to_string(),
         ),
+        // Humble has no cover-art API to call (unlike Steam's CDN guess
+        // or GOG's exact product-ID lookup) — the exe-icon fallback is
+        // the only cover art these ever get, so this is always the same
+        // path as exe_path above.
+        icon_source: Some(
+            std::path::Path::new(&file_path)
+                .join(&executable_path)
+                .to_string_lossy()
+                .to_string(),
+        ),
         drm: DrmRecord::drm_free("humble", DrmDeterminationMethod::StorefrontImport, HUMBLE_POLICY_VERIFIED_ON),
     })
 }
