@@ -4,6 +4,7 @@ mod community;
 mod drm_axes;
 mod http;
 mod icon;
+mod mods;
 mod plugins;
 mod portability_audit;
 mod providers;
@@ -34,7 +35,11 @@ pub fn run() {
             axis_test::run_launch_audit,
             portability_audit::run_portability_audit,
             plugins::list_plugins,
-            plugins::open_plugin_window
+            plugins::open_plugin_window,
+            mods::list_mods,
+            mods::toggle_mod,
+            mods::set_mod_order,
+            mods::suggest_mod_dirs
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
