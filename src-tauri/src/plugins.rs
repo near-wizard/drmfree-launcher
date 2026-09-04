@@ -47,7 +47,7 @@ const PLUGINS: &[PluginDef] = &[
     PluginDef {
         id: "mods",
         name: "Mod Manager",
-        description: "Enable, disable, and reorder local mods for supported games. A scaffold today — no install/catalog commands exist yet (decision 0028).",
+        description: "Enable, disable, and reorder local mods already on disk for a game you pick. Phase A only (decision 0028/0032) — no fetching, no catalog, no install-from-URL yet.",
         kind: PluginKind::Window { window_label: "plugin-mods" },
     },
     PluginDef {

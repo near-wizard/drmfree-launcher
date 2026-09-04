@@ -1752,3 +1752,87 @@ button.upgrade-compare-button {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--brass-light);
 }
+
+.mod-manager-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.mod-manager-row label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.mod-manager-row .search-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.mod-manager-suggestions {
+  font-size: 0.85rem;
+  color: var(--paper-dim);
+  margin: -0.4rem 0 0.8rem;
+}
+
+.mod-manager-suggestion-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--copper);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+.mod-manager-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.mod-manager-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  background: var(--iron-mid);
+  border-radius: 4px;
+}
+
+.mod-manager-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.mod-manager-order-btns button {
+  line-height: 1;
+  padding: 0.1rem 0.4rem;
+}
+
+.mod-manager-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mod-manager-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.mod-manager-order-note {
+  font-size: 0.8rem;
+  color: var(--paper-dim);
+}

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "plugin-mods",
-  "description": "Capability for the Mod Manager plugin window (decision 0029). Deliberately narrower than capabilities/default.json: no opener, updater, or process permissions — a plugin window only ever gets what its own commands need, never anything inherited from the main app just by sharing its process. Extend this file (not default.json) when mods:* commands exist.",
+  "description": "Capability for the Mod Manager plugin window (decision 0029). Deliberately narrower than capabilities/default.json for Tauri's own built-in plugin permissions: no opener, updater, or process access. IMPORTANT, see decision 0032: this file does NOT scope this app's own #[tauri::command]s (mods::*, list_games, launch_game, etc.) — this project has no permissions/ directory or command-ACL setup (bare tauri_build::build() in build.rs), so every command registered in generate_handler! is callable from any window today, this one included, regardless of what's listed below. The 'permissions' array here only fences off the three built-in Tauri plugins the main window gets (opener/updater/process) plus core:default. Real per-command containment for this window is a documented, deferred follow-up, not something this file currently provides — don't read its narrowness as proof mods:: commands are sandboxed from the rest of the app.",
   "windows": ["plugin-mods"],
   "permissions": ["core:default"]
 }
