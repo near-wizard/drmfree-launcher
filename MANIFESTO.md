@@ -2,10 +2,11 @@
 
 You don't own your games. You own a revocable permission slip, stored
 on someone else's server, that they can amend, restrict, or delete.
-Steam has never sold you a copy of a game — it's sold you a promise
-that its servers will keep letting you play it, for as long as that
-remains convenient for Valve. Every DRM-locked storefront makes the
-same deal. Most players have never read the terms, because the terms
+A DRM-locked storefront has never sold you a copy of a game — it's
+sold you a promise that its servers will keep letting you play it,
+for as long as that remains convenient for them. Steam is the biggest
+example, but every DRM-locked storefront makes the same deal. Most
+players have never read the terms, because the terms
 don't matter until the day they do: a delisting, a region lock, a
 "this content is no longer available," a company that shuts down and
 takes its authentication servers with it.

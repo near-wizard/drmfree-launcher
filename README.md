@@ -1,6 +1,6 @@
 # DRM-Free Launcher
 
-**You don't own a Steam library. You own a permission slip Valve can revoke. This app shows you, game by game, when you could own the thing instead.**
+**You don't own a DRM-locked library. You own a permission slip the platform can revoke. This app shows you, game by game, when you could own the thing instead.**
 
 [![CI](https://github.com/near-wizard/drmfree-launcher/actions/workflows/ci.yml/badge.svg)](https://github.com/near-wizard/drmfree-launcher/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/near-wizard/drmfree-launcher?include_prereleases)](https://github.com/near-wizard/drmfree-launcher/releases)
@@ -43,14 +43,30 @@ analytics are opt-in and off by default — see below.
   through that storefront's own native handoff (Steam protocol URI,
   direct executable for GOG and Humble, Epic protocol URI). Search,
   filter by source or DRM status, sort by name/source/recently played.
-- **DRM-free upgrade finder.** Check any installed game against GOG's
-  catalog — an exact-title match, not a fuzzy guess, so you won't get
-  a false "yes" on a demo or the wrong edition. Match once, and it's
-  remembered; check your whole library in one pass if you'd rather not
-  click through titles one at a time.
+  Own a DRM-free game from somewhere this app can't auto-detect
+  (itch.io, for instance)? Add it by hand — it counts toward
+  everything below just the same.
+- **Freedom dashboard.** "N of M games are DRM-free," updating live as
+  you check for upgrades — the honest, conservative number (it
+  doesn't count community-consensus guesses, only verified status).
+- **DRM-free upgrade finder, with a real price comparison.** Check any
+  installed game against GOG's catalog — an exact-title match, not a
+  fuzzy guess, so you won't get a false "yes" on a demo or the wrong
+  edition. A match shows an actual side-by-side: what you'd pay on GOG
+  vs. what you paid (or would pay) on the locked platform, not just a
+  badge saying an alternative exists. Check one game or your whole
+  library in a single pass.
+- **Steam wishlist cross-reference.** Paste your SteamID64 and see
+  which wishlisted titles already have a DRM-free version — before you
+  ever buy the locked one.
 - **Store tab.** Browse and search GOG's DRM-free catalog directly,
   with an NSFW filter on by default. Buying happens on gog.com — this
   app never touches payment or fulfillment.
+- **A guided tour, tailored to how you actually buy games.** First
+  launch walks through the real UI — not a slideshow describing it —
+  and skips whatever doesn't apply (no point pitching the Steam
+  wishlist tool to someone who said they don't use Steam). Replay it
+  anytime from the "Tour" link in the header.
 - **No accounts.** Detection reads local install manifests and
   registry keys only; it never calls a storefront's web API to ask
   what you own. See
