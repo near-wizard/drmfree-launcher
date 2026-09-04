@@ -104,3 +104,9 @@ notably affiliate tag injection, which doesn't exist yet either
 ## Stage 3+ — Differentiation (future)
 Curated discoverability, published moderation policy, Linux/handheld
 platform focus.
+
+- [ ] Mod support (local mod management, community mod catalog, 1-click
+      install) — explored, not decided. See
+      `decisions/0026-mod-support-exploration.md` for the phasing
+      (local-only → install-from-URL → curated catalog → hosting) and
+      why file hosting is the highest-risk, least-recommended stage.
