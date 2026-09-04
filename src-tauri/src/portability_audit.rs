@@ -18,6 +18,48 @@ use std::path::{Path, PathBuf};
 /// byte-for-byte size comparison doesn't account for.
 const FREE_SPACE_SAFETY_MARGIN: f64 = 1.1;
 
+/// Every staging directory this module creates is named with this
+/// prefix — used both when creating one and, in `sweep_stale_staging_dirs`,
+/// to recognize leftovers from a run that never reached its own cleanup.
+const STAGING_DIR_PREFIX: &str = "drmfree-launcher-portability-";
+
+/// Cleans up any staging copy left behind by a previous run that never
+/// reached its own `remove_dir_all` — found the hard way, not by
+/// inspection: killing the app (or, in testing, the process running an
+/// audit) mid-launch can leave the copied game's exe still running,
+/// holding file locks `run_portability_audit`'s own cleanup then can't
+/// clear, orphaning a multi-gigabyte directory in the user's temp
+/// folder indefinitely. Called once at app startup (`lib.rs`), not
+/// before every audit — a normal audit already cleans up after itself;
+/// this only matters for the crash/force-kill case. Best-effort: a
+/// directory still locked by a lingering process (the same reason it
+/// was orphaned in the first place) is skipped, not retried — it'll be
+/// swept on the next startup instead.
+pub fn sweep_stale_staging_dirs() {
+    sweep_stale_staging_dirs_in(&std::env::temp_dir());
+}
+
+/// The actual sweep, taking the directory to scan as a parameter —
+/// split out so it's testable against an isolated directory rather
+/// than the real system temp dir every other test's real staging
+/// copies also live in. Sweeping the *real* temp dir from a test would
+/// race any other test concurrently using a real staging directory
+/// under the same prefix (cargo runs tests in parallel by default) —
+/// found live: a first version of this test deleted a sibling test's
+/// in-progress copy out from under it.
+fn sweep_stale_staging_dirs_in(root: &Path) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let is_stale = entry.file_name().to_string_lossy().starts_with(STAGING_DIR_PREFIX)
+            && entry.file_type().is_ok_and(|t| t.is_dir());
+        if is_stale {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
 /// Recursively sums file sizes under `dir`. Best-effort: an unreadable
 /// entry (a permissions quirk, a broken symlink) is skipped rather than
 /// failing the whole measurement — an undercount here only makes the
@@ -108,6 +150,22 @@ async fn launch_and_check_alive_then_kill(exe_path: &Path, timeout_secs: u64) ->
     result
 }
 
+/// Measures an install directory's size in bytes — exposed on its own
+/// (not just folded into `run_portability_audit`'s internal call to
+/// `dir_size`) so the frontend can show a real number and warn before
+/// committing to a copy, for installs large enough that the copy step
+/// itself takes real time (see `GameCard.tsx`'s size-threshold
+/// confirmation). Runs the recursive directory walk on a blocking
+/// thread — `dir_size` is synchronous I/O, and a large tree (many
+/// thousands of files) walking it directly on an async task would
+/// block that worker thread for the whole scan.
+#[tauri::command]
+pub async fn get_install_size(install_dir: String) -> Result<u64, String> {
+    tokio::task::spawn_blocking(move || dir_size(Path::new(&install_dir)))
+        .await
+        .map_err(|e| format!("failed to measure install size: {e}"))
+}
+
 /// The full copyable-install test: measures the install, checks there's
 /// enough free space in the system temp directory (with a safety
 /// margin), copies it there, launches the copy, and always attempts
@@ -147,7 +205,7 @@ pub async fn run_portability_audit(
     // run; std::fs::copy will fail loudly on its own if space actually
     // runs out mid-copy.
 
-    let staging_dir = staging_root.join(format!("drmfree-launcher-portability-{}", uuid_like()));
+    let staging_dir = staging_root.join(format!("{STAGING_DIR_PREFIX}{}", uuid_like()));
     copy_dir_recursive(&install_dir, &staging_dir).map_err(|e| format!("failed to copy the install: {e}"))?;
 
     let copied_exe = staging_dir.join(relative_exe);
@@ -194,6 +252,42 @@ mod tests {
         std::fs::write(dir.join("sub").join("b.txt"), "1234567890").unwrap();
 
         assert_eq!(dir_size(&dir), 15);
+
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn sweep_stale_staging_dirs_removes_only_directories_with_the_staging_prefix() {
+        // An isolated fake "temp root" — not std::env::temp_dir()
+        // itself, which real staging copies from other concurrently-
+        // running tests also live in (cargo runs tests in parallel by
+        // default); sweeping the real one here would risk deleting a
+        // sibling test's in-progress copy out from under it.
+        let root = temp_dir("sweep-root");
+
+        let stale = root.join(format!("{STAGING_DIR_PREFIX}leftover"));
+        std::fs::create_dir_all(&stale).unwrap();
+        std::fs::write(stale.join("leftover.bin"), "data").unwrap();
+
+        let unrelated = root.join("unrelated-dir");
+        std::fs::create_dir_all(&unrelated).unwrap();
+        std::fs::write(unrelated.join("keep-me.txt"), "data").unwrap();
+
+        sweep_stale_staging_dirs_in(&root);
+
+        assert!(!stale.exists(), "stale staging directory should have been swept");
+        assert!(unrelated.exists(), "an unrelated directory must not be touched");
+
+        std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[tokio::test]
+    async fn get_install_size_matches_dir_size_for_a_real_directory() {
+        let dir = temp_dir("get-install-size");
+        std::fs::write(dir.join("a.txt"), "12345").unwrap();
+
+        let reported = get_install_size(dir.to_string_lossy().to_string()).await.unwrap();
+        assert_eq!(reported, 5);
 
         std::fs::remove_dir_all(&dir).unwrap();
     }
@@ -295,7 +389,7 @@ mod tests {
         let leftovers: Vec<_> = std::fs::read_dir(std::env::temp_dir())
             .unwrap()
             .flatten()
-            .filter(|e| e.file_name().to_string_lossy().starts_with("drmfree-launcher-portability-"))
+            .filter(|e| e.file_name().to_string_lossy().starts_with(STAGING_DIR_PREFIX))
             .collect();
         assert!(leftovers.is_empty(), "expected no leftover staging directories, found {leftovers:?}");
 

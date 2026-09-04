@@ -100,6 +100,33 @@ export async function runFullAudit(provider: string, id: string, exePath: string
   return getLocalAxisResults(provider, id) ?? unknownAxes();
 }
 
+/** Bytes above which `GameCard.tsx` confirms with the user before
+ * starting the portability test — 1 GiB. Chosen from live testing: a
+ * ~3.4 GB real install took several minutes to copy, long enough that
+ * starting it silently would be a surprise, not just a wait (see
+ * decision 0032). A small install (tens to a few hundred MB, typical
+ * of e.g. Risk of Rain's ~92 MB) finishes fast enough not to need one. */
+export const PORTABILITY_TEST_CONFIRM_THRESHOLD_BYTES = 1024 * 1024 * 1024;
+
+/** A plain "N.N GB"/"N MB" label — good enough for a confirmation
+ * message, not meant as a general-purpose formatter (no locale
+ * handling, no binary-vs-decimal-unit debate, just GB above 1 GiB and
+ * MB below it since that's the only range this feature's sizes fall
+ * in). */
+export function formatBytes(bytes: number): string {
+  const gib = 1024 * 1024 * 1024;
+  if (bytes >= gib) return `${(bytes / gib).toFixed(1)} GB`;
+  return `${Math.round(bytes / (1024 * 1024))} MB`;
+}
+
+/** Measures an install directory's size — call before
+ * `runPortabilityAudit` to decide whether to confirm with the user
+ * first (see the threshold above). Also useful on its own to show a
+ * real number in that confirmation, not just "this might be big." */
+export async function getInstallSize(installDir: string): Promise<number> {
+  return invoke<number>("get_install_size", { installDir });
+}
+
 /** The `copyable_install` (D1) test — copies the install directory to
  * a temp location and checks the copy still launches, then cleans up.
  * Deliberately separate from `runFullAudit`/"Run audit": a multi-

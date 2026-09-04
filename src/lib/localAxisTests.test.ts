@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
+  formatBytes,
+  getInstallSize,
   getLocalAxisResults,
   runStructuralAxes,
   runLaunchAudit,
@@ -117,6 +119,33 @@ describe("runFullAudit", () => {
     const result = await runFullAudit("steam", "1", null);
     expect(result.no_launcher).toBe("fail");
     expect(invokeMock).not.toHaveBeenCalledWith("run_launch_audit", expect.anything());
+  });
+});
+
+describe("getInstallSize", () => {
+  beforeEach(() => {
+    invokeMock.mockReset();
+  });
+
+  it("calls get_install_size with the given directory and returns the byte count", async () => {
+    invokeMock.mockResolvedValue(12345);
+    const size = await getInstallSize("C:\\Games\\X");
+    expect(invokeMock).toHaveBeenCalledWith("get_install_size", { installDir: "C:\\Games\\X" });
+    expect(size).toBe(12345);
+  });
+});
+
+describe("formatBytes", () => {
+  it("formats sub-GiB sizes as whole megabytes", () => {
+    expect(formatBytes(92 * 1024 * 1024)).toBe("92 MB");
+  });
+
+  it("formats GiB-and-above sizes as gigabytes with one decimal", () => {
+    expect(formatBytes(3.4 * 1024 * 1024 * 1024)).toBe("3.4 GB");
+  });
+
+  it("treats exactly 1 GiB as the GB boundary, not MB", () => {
+    expect(formatBytes(1024 * 1024 * 1024)).toBe("1.0 GB");
   });
 });
 

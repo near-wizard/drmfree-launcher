@@ -15,6 +15,16 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .setup(|_app| {
+            // A staging copy from a portability audit that never
+            // reached its own cleanup (the app or the copied game's
+            // process got killed mid-run) leaves a multi-gigabyte
+            // orphan in the user's temp folder — swept here, once per
+            // launch, on a background thread so a big scan/delete
+            // never delays showing the window. See decision 0032.
+            std::thread::spawn(portability_audit::sweep_stale_staging_dirs);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::list_games,
             commands::list_providers,
@@ -32,6 +42,7 @@ pub fn run() {
             community::get_community_consensus,
             axis_test::structural_axes,
             axis_test::run_launch_audit,
+            portability_audit::get_install_size,
             portability_audit::run_portability_audit,
             plugins::list_plugins,
             plugins::open_plugin_window

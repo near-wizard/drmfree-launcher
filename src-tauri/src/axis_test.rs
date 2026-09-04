@@ -320,27 +320,30 @@ mod tests {
     // deliberately loopback-only (bind a listener, connect to it from
     // the same process) so this is CI-safe even on a network-sandboxed
     // runner with no real internet access.
+    //
+    // Both the positive and negative cases are one test, not two,
+    // deliberately: cargo runs `#[test]` functions in parallel by
+    // default, and the process's own TCP table is genuinely global
+    // state, not per-test — a separate "before any socket" test raced
+    // against this one intermittently, since `has_outbound_connection`
+    // can't tell which thread's test opened a given connection, only
+    // that *this PID* owns one. Found live via a real flake, not by
+    // inspection. Sequencing both assertions in one function is a
+    // correctness fix, not just a style preference: it's the only way
+    // to guarantee "before" really means before.
     #[cfg(target_os = "windows")]
     #[test]
-    fn has_outbound_connection_detects_a_real_loopback_connection_for_this_process() {
+    fn has_outbound_connection_reflects_this_process_before_and_after_opening_a_real_socket() {
         use std::net::{TcpListener, TcpStream};
+
+        let pid = std::process::id();
+        assert_eq!(network::has_outbound_connection(pid), Some(false));
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind a local listener for the test");
         let addr = listener.local_addr().unwrap();
         let _client = TcpStream::connect(addr).expect("failed to connect to the local test listener");
         let _server_side = listener.accept().expect("failed to accept the local test connection");
 
-        let pid = std::process::id();
         assert_eq!(network::has_outbound_connection(pid), Some(true));
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn has_outbound_connection_is_false_for_this_process_before_opening_any_socket() {
-        // A plain #[test] (no tokio runtime, no sockets opened by
-        // anything in this binary yet) has no real connections to its
-        // own PID — the negative case for the positive one above.
-        let pid = std::process::id();
-        assert_eq!(network::has_outbound_connection(pid), Some(false));
     }
 }

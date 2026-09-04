@@ -434,6 +434,69 @@ describe("GameCard local automated axis tests", () => {
     expect(screen.queryByRole("button", { name: "Test copyable install" })).not.toBeInTheDocument();
   });
 
+  it("confirms before running the portability test on a large install, and aborts if declined", async () => {
+    routeInvoke({ get_install_size: 2 * 1024 * 1024 * 1024, run_portability_audit: "pass" });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Test copyable install" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("get_install_size", { installDir: "C:\\Games\\X" });
+    });
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("2.0 GB"));
+    expect(invokeMock).not.toHaveBeenCalledWith("run_portability_audit", expect.anything());
+    confirmSpy.mockRestore();
+  });
+
+  it("proceeds after the user confirms a large install", async () => {
+    routeInvoke({ get_install_size: 2 * 1024 * 1024 * 1024, run_portability_audit: "pass" });
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Test copyable install" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("run_portability_audit", expect.anything());
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it("does not prompt at all for a small install", async () => {
+    routeInvoke({ get_install_size: 90 * 1024 * 1024, run_portability_audit: "pass" });
+    const confirmSpy = vi.spyOn(window, "confirm");
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Test copyable install" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("run_portability_audit", expect.anything());
+    });
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
   it("running the portability test calls run_portability_audit and updates the your-machine pips row", async () => {
     routeInvoke({ run_portability_audit: "pass" });
     const user = userEvent.setup();

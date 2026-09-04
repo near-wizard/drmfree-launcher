@@ -7,8 +7,11 @@ import { getCommunityConsensus, submitDrmReport } from "../lib/community";
 import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { deriveAxisResults } from "../lib/drmAxesConsensus";
 import {
+  formatBytes,
   getAutoSubmitAuditResults,
+  getInstallSize,
   getLocalAxisResults,
+  PORTABILITY_TEST_CONFIRM_THRESHOLD_BYTES,
   runFullAudit,
   runPortabilityAudit,
   runStructuralAxes,
@@ -414,6 +417,26 @@ export function GameCard({
 
   async function runPortabilityTest() {
     if (!game.install_dir || !game.exe_path) return;
+    setPortabilityTestError(null);
+    // A real, large install is a genuinely different commitment (disk,
+    // time) than every other check on this card — live testing found a
+    // ~3.4 GB install took several minutes to copy (decision 0032).
+    // Confirm before starting rather than let a click silently turn
+    // into a multi-minute wait with no warning.
+    try {
+      const size = await getInstallSize(game.install_dir);
+      if (size >= PORTABILITY_TEST_CONFIRM_THRESHOLD_BYTES) {
+        const proceed = window.confirm(
+          `This will copy ${formatBytes(size)} to a temp folder to test it, then delete the copy. ` +
+            `That can take a while for a large install. Continue?`,
+        );
+        if (!proceed) return;
+      }
+    } catch {
+      // A failed size check shouldn't block the test outright — the
+      // free-space check inside run_portability_audit itself is the
+      // real safety net; this was only ever a courtesy heads-up.
+    }
     setPortabilityTestRunning(true);
     try {
       const result = await runPortabilityAudit(game.provider, game.id, game.install_dir, game.exe_path);
