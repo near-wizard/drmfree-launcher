@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "plugin-mods",
-  "description": "Capability for the Mod Manager plugin window (decision 0027). Deliberately narrower than capabilities/default.json: no opener, updater, or process permissions — a plugin window only ever gets what its own commands need, never anything inherited from the main app just by sharing its process. Extend this file (not default.json) when mods:* commands exist.",
+  "description": "Capability for the Mod Manager plugin window (decision 0029). Deliberately narrower than capabilities/default.json: no opener, updater, or process permissions — a plugin window only ever gets what its own commands need, never anything inherited from the main app just by sharing its process. Extend this file (not default.json) when mods:* commands exist.",
   "windows": ["plugin-mods"],
   "permissions": ["core:default"]
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { isPluginEnabled, listPlugins, openPluginWindow, setPluginEnabled, type PluginInfo } from "../lib/plugins";
 import { track } from "../lib/analytics";
 
-// Every plugin is off by default (decision 0027) — this view is the only
+// Every plugin is off by default (decision 0029) — this view is the only
 // place that turns one on, and it never does so on its own; enabling and
 // opening are both explicit clicks.
 export function PluginsView() {
@@ -47,7 +47,7 @@ export function PluginsView() {
       <p className="header-subtitle">
         Optional modules, off by default. Enabling one only unlocks its own window and its own
         narrow set of commands — it never changes what the main app itself can do. See{" "}
-        <code>docs/decisions/0027</code> for the design.
+        <code>docs/decisions/0029</code> for the design.
       </p>
       {error && <p className="error-banner">{error}</p>}
       {!loading && plugins.length === 0 && <p>No plugins registered yet.</p>}

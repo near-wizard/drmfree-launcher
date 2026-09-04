@@ -107,13 +107,14 @@ platform focus.
 
 - [ ] Mod support (local mod management, community mod catalog, 1-click
       install) — explored, not decided. See
-      `decisions/0026-mod-support-exploration.md` for the phasing
+      `decisions/0028-mod-support-exploration.md` for the phasing
       (local-only → install-from-URL → curated catalog → hosting) and
       why file hosting is the highest-risk, least-recommended stage.
-- [ ] Opt-in plugin module architecture, with Mod Manager as the first
-      plugin — explored, not decided. See
-      `decisions/0027-plugin-module-architecture.md`: a plugin is a
-      sandboxed Tauri child window with its own scoped capabilities
-      file, off by default; the core app still owns every action with a
-      real side effect (mods included) so a plugin is UI/orchestration
-      only, never a route to running unreviewed native code.
+- [x] Opt-in plugin module architecture, with Mod Manager as the first
+      (placeholder) plugin. See `decisions/0029-plugin-module-architecture.md`:
+      a plugin is a sandboxed Tauri child window with its own scoped
+      capabilities file, off by default; the core app still owns every
+      action with a real side effect (mods included) so a plugin is
+      UI/orchestration only, never a route to running unreviewed native
+      code. See `decisions/0030-audit-plugin-migration.md` for moving
+      the existing DRM-axis audit feature behind the same model.

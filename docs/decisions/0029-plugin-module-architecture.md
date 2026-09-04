@@ -1,7 +1,12 @@
-# 0027 — Plugin module architecture for opt-in features
+# 0029 — Plugin module architecture for opt-in features
+
+**Renumbered from 0027** (originally written as this repo's follow-up
+to a 0026 that was, at the same time, independently claimed by
+`0026-consolidated-audit-and-auto-submit.md` on `master` — see 0028's
+own renumbering note). No content change from the renumbering itself.
 
 **Status:** exploring, not decided — no code changes yet. Follow-up to
-0026: the user's steer was that mod support (and anything like it) should
+0028: the user's steer was that mod support (and anything like it) should
 be **opt-in only** and shaped as a **pluggable module**, not something
 baked into the base app. This explores what "plugin" can actually mean in
 this stack and proposes a concrete architecture, using mods as the
@@ -43,7 +48,7 @@ Two things *are* already load-bearing for a real answer:
 
 The dangerous part of mod support was never "there's an extra tab in the
 UI" — it's "the launcher fetches a third-party file and writes it
-somewhere a game will execute it" (0026's central point). If a "plugin"
+somewhere a game will execute it" (0028's central point). If a "plugin"
 system's answer to that is *third-party code gets to do that write
 itself*, sandboxing the plugin's UI layer accomplishes nothing — the
 dangerous action just moved into whatever's inside the sandbox's request
@@ -52,7 +57,7 @@ handler. So the split has to be:
 - **Core app owns every action with real-world side effects** — writing
   a file, extracting an archive, launching a process, hitting the
   network. These are implemented once, in this repo, with the safety
-  rules 0026 already specified (confirm-before-write, zip-slip-safe
+  rules 0028 already specified (confirm-before-write, zip-slip-safe
   extraction, no auto-executing bundled installers, checksum
   verification). A "mod install" Tauri command is exactly as
   security-reviewed as `launch_game` is today — it's core code, just
@@ -122,7 +127,7 @@ never needed to be native in the first place.
   a first-party plugin like Mod Manager*. Recommended starting point.
 - **Fetched-on-enable.** The plugin bundle is *not* in the app download
   at all; enabling it fetches `plugin.json` + the bundle from a registry
-  (the closed `drmfree-community`-shaped backend 0026 already flagged
+  (the closed `drmfree-community`-shaped backend 0028 already flagged
   for mod-catalog curation is a natural home), verifies the `sha256`
   before ever loading it into a window, and caches it locally. This is
   what "pulled in separately" means in the fullest sense — a plugin that
@@ -143,7 +148,7 @@ never needed to be native in the first place.
    pre-enabled) — satisfies the direct ask.
 2. Enabling a plugin shows exactly which capabilities it's requesting
    (reusing the `capabilities` array in its manifest) before its window
-   ever opens — the same "show, then confirm" principle 0026 already
+   ever opens — the same "show, then confirm" principle 0028 already
    specified for mod installs, applied one level up to the plugin grant
    itself.
 
@@ -152,7 +157,7 @@ never needed to be native in the first place.
 Mod Manager becomes the first bundled-but-dormant plugin:
 
 - Core app gains `mods::list_installed`, `mods::toggle`,
-  `mods::install_from_archive` (Stage A/B from 0026) as real, reviewed
+  `mods::install_from_archive` (Stage A/B from 0028) as real, reviewed
   Tauri commands — present in the binary, not registered in
   `capabilities/default.json`, so the main window can't call them
   either.
@@ -162,7 +167,7 @@ Mod Manager becomes the first bundled-but-dormant plugin:
   only the three commands above.
 - Settings gets a "Plugins" section with Mod Manager as the only entry
   initially, off by default, one click to open its window once enabled.
-- The community catalog piece of 0026 (Stage C) becomes a second,
+- The community catalog piece of 0028 (Stage C) becomes a second,
   independent opt-in inside the *plugin's own* UI, not a second
   top-level toggle — installing the Mod Manager plugin doesn't imply
   trusting a community catalog; browsing that catalog is a further,
@@ -187,10 +192,10 @@ threat model.
 
 ## What this decision does NOT resolve
 
-- The actual `mods::*` command implementations — still gated on 0026's
+- The actual `mods::*` command implementations — still gated on 0028's
   open phasing question (which of A/B/C to build first).
 - Whether the plugin registry (for fetched-on-enable) is a new service
-  or folded into `drmfree-community` — deferred same as 0026 deferred
+  or folded into `drmfree-community` — deferred same as 0028 deferred
   the catalog's home.
 - A real signing/publisher-trust model for any plugin not authored by
   this project — explicitly out of scope until first-party plugins

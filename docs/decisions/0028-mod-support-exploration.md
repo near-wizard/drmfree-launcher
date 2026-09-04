@@ -1,14 +1,19 @@
-# 0026 — Mod support: exploration
+# 0028 — Mod support: exploration
 
 **Status:** exploring, not decided — no code changes yet. This records the
 landscape and a recommended path so the actual scope decision can be made
 deliberately, the same way 0013 separated "structure" from "which sources"
 before building any.
 
+**Renumbered from 0026** — that number collided with
+`0026-consolidated-audit-and-auto-submit.md`, added independently on
+`master` while this was still exploration-only on a branch. No content
+change from the renumbering itself.
+
 **Update:** the follow-up ask was that this be opt-in only and shaped as
 a pluggable module rather than built into the base app. See
-`0027-plugin-module-architecture.md` for how "Mods" fits that shape —
-everything below about *what* mod support does still stands; 0027 covers
+`0029-plugin-module-architecture.md` for how "Mods" fits that shape —
+everything below about *what* mod support does still stands; 0029 covers
 *how it's packaged and gated*.
 
 ## The ask

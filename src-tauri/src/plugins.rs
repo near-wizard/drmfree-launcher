@@ -1,4 +1,4 @@
-//! Opt-in plugin modules (decision 0027). A plugin is never a tab in the
+//! Opt-in plugin modules (decision 0029). A plugin is never a tab in the
 //! main window — it's a separate Tauri window/webview, scoped by its own
 //! `capabilities/plugin-<id>.json` file, so enabling one never hands it
 //! anything the main window itself has (opener/updater/process today —
@@ -9,7 +9,7 @@
 //! No plugin has any real commands yet — `PLUGINS` exists so the
 //! scaffold (registry + window-per-plugin + narrower capability file) is
 //! real and testable before "Mod Manager" grows anything it can actually
-//! do (see decision 0026's still-open phasing question).
+//! do (see decision 0028's still-open phasing question).
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder};
@@ -29,7 +29,7 @@ struct PluginDef {
 const PLUGINS: &[PluginDef] = &[PluginDef {
     id: "mods",
     name: "Mod Manager",
-    description: "Enable, disable, and reorder local mods for supported games. A scaffold today — no install/catalog commands exist yet (decision 0026).",
+    description: "Enable, disable, and reorder local mods for supported games. A scaffold today — no install/catalog commands exist yet (decision 0028).",
     window_label: "plugin-mods",
 }];
 
