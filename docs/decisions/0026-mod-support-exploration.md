@@ -5,6 +5,12 @@ landscape and a recommended path so the actual scope decision can be made
 deliberately, the same way 0013 separated "structure" from "which sources"
 before building any.
 
+**Update:** the follow-up ask was that this be opt-in only and shaped as
+a pluggable module rather than built into the base app. See
+`0027-plugin-module-architecture.md` for how "Mods" fits that shape —
+everything below about *what* mod support does still stands; 0027 covers
+*how it's packaged and gated*.
+
 ## The ask
 
 Three things got bundled together in the request and they carry very
