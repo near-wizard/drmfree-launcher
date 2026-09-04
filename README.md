@@ -19,6 +19,9 @@ Read the [manifesto](MANIFESTO.md) for the argument this app is
 actually making.
 
 <p align="center">
+  <img src="docs/screenshots/freedom-dashboard.png" alt="DRM-Free Launcher — library view with the freedom dashboard showing how much of your library is already DRM-free" width="720">
+</p>
+<p align="center">
   <img src="docs/screenshots/store.png" alt="DRM-Free Launcher — Store tab browsing GOG's DRM-free catalog" width="720">
 </p>
 
