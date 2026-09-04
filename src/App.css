@@ -1047,8 +1047,25 @@ button:disabled {
   border-color: var(--brass-dark);
 }
 
-.local-axis-test-button {
+.local-audit-row {
   flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.local-axis-test-button {
+  flex: 1 1 auto;
+}
+
+.local-audit-auto-submit {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 
 /* ---------- Store: wood shelf of cases ---------- */

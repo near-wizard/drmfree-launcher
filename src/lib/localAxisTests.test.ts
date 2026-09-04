@@ -2,8 +2,11 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   getLocalAxisResults,
   runStructuralAxes,
-  runLaunchSmokeTest,
+  runLaunchAudit,
+  runFullAudit,
   shareableVotes,
+  getAutoSubmitAuditResults,
+  setAutoSubmitAuditResults,
 } from "./localAxisTests";
 import { unknownAxes } from "../types/drmAxes";
 
@@ -37,19 +40,20 @@ describe("localAxisTests", () => {
     expect(invokeMock).toHaveBeenCalledWith("structural_axes", { provider: "steam" });
   });
 
-  it("persists a launch smoke test result under first_launch_offline only", async () => {
-    invokeMock.mockResolvedValue("pass");
-    const result = await runLaunchSmokeTest("gog", "1", "C:\\Games\\X\\X.exe");
-    expect(result).toBe("pass");
+  it("persists both axes from a launch audit result", async () => {
+    invokeMock.mockResolvedValue({ first_launch_offline: "pass", no_third_party_services: "fail" });
+    const result = await runLaunchAudit("gog", "1", "C:\\Games\\X\\X.exe");
+    expect(result).toEqual({ first_launch_offline: "pass", no_third_party_services: "fail" });
     const stored = getLocalAxisResults("gog", "1")!;
     expect(stored.first_launch_offline).toBe("pass");
+    expect(stored.no_third_party_services).toBe("fail");
     expect(stored.no_launcher).toBe("unknown");
   });
 
-  it("calls run_launch_smoke_test with the exe path and a default timeout", async () => {
-    invokeMock.mockResolvedValue("fail");
-    await runLaunchSmokeTest("humble", "2", "C:\\Games\\Y\\Y.exe");
-    expect(invokeMock).toHaveBeenCalledWith("run_launch_smoke_test", {
+  it("calls run_launch_audit with the exe path and a default timeout", async () => {
+    invokeMock.mockResolvedValue({ first_launch_offline: "pass", no_third_party_services: "unknown" });
+    await runLaunchAudit("humble", "2", "C:\\Games\\Y\\Y.exe");
+    expect(invokeMock).toHaveBeenCalledWith("run_launch_audit", {
       exePath: "C:\\Games\\Y\\Y.exe",
       timeoutSecs: 8,
     });
@@ -63,12 +67,13 @@ describe("localAxisTests", () => {
     });
     await runStructuralAxes("gog", "1");
 
-    invokeMock.mockResolvedValueOnce("fail");
-    await runLaunchSmokeTest("gog", "1", "C:\\Games\\X\\X.exe");
+    invokeMock.mockResolvedValueOnce({ first_launch_offline: "fail", no_third_party_services: "pass" });
+    await runLaunchAudit("gog", "1", "C:\\Games\\X\\X.exe");
 
     const stored = getLocalAxisResults("gog", "1")!;
     expect(stored.no_storefront_client).toBe("pass");
     expect(stored.first_launch_offline).toBe("fail");
+    expect(stored.no_third_party_services).toBe("pass");
   });
 
   it("keeps separate games' results independent", async () => {
@@ -79,6 +84,55 @@ describe("localAxisTests", () => {
 
     expect(getLocalAxisResults("gog", "1")!.no_launcher).toBe("pass");
     expect(getLocalAxisResults("steam", "1")!.no_launcher).toBe("fail");
+  });
+});
+
+describe("runFullAudit", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+  });
+
+  it("runs both structural and launch audits when a real exe path is given", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "structural_axes") {
+        return Promise.resolve({ ...unknownAxes(), no_storefront_client: "pass", no_launcher: "pass" });
+      }
+      if (cmd === "run_launch_audit") {
+        return Promise.resolve({ first_launch_offline: "pass", no_third_party_services: "pass" });
+      }
+      return Promise.resolve(null);
+    });
+
+    const result = await runFullAudit("gog", "1", "C:\\Games\\X\\X.exe");
+    expect(result.no_launcher).toBe("pass");
+    expect(result.first_launch_offline).toBe("pass");
+    expect(result.no_third_party_services).toBe("pass");
+    expect(invokeMock).toHaveBeenCalledWith("run_launch_audit", expect.anything());
+  });
+
+  it("skips the launch audit entirely when there is no real exe path", async () => {
+    invokeMock.mockResolvedValue({ ...unknownAxes(), no_storefront_client: "fail", no_launcher: "fail" });
+    const result = await runFullAudit("steam", "1", null);
+    expect(result.no_launcher).toBe("fail");
+    expect(invokeMock).not.toHaveBeenCalledWith("run_launch_audit", expect.anything());
+  });
+});
+
+describe("auto-submit audit preference", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("defaults to off", () => {
+    expect(getAutoSubmitAuditResults()).toBe(false);
+  });
+
+  it("persists once set", () => {
+    setAutoSubmitAuditResults(true);
+    expect(getAutoSubmitAuditResults()).toBe(true);
+    setAutoSubmitAuditResults(false);
+    expect(getAutoSubmitAuditResults()).toBe(false);
   });
 });
 

@@ -3,10 +3,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { clearCachedMatch, getCachedMatch } from "../lib/gogMatchCache";
 import { checkGogMatch, type CheckResult } from "../lib/gogUpgradeCheck";
-import { getCommunityConsensus } from "../lib/community";
+import { getCommunityConsensus, submitDrmReport } from "../lib/community";
 import { applyCommunityConsensus } from "../lib/communityConsensus";
 import { deriveAxisResults } from "../lib/drmAxesConsensus";
-import { getLocalAxisResults, runLaunchSmokeTest, runStructuralAxes, shareableVotes } from "../lib/localAxisTests";
+import {
+  getAutoSubmitAuditResults,
+  getLocalAxisResults,
+  runFullAudit,
+  runStructuralAxes,
+  setAutoSubmitAuditResults,
+  shareableVotes,
+} from "../lib/localAxisTests";
 import { track } from "../lib/analytics";
 import { MANUAL_PROVIDER, removeManualGame } from "../lib/manualGames";
 import { getMultiplayerNeedsPlatform, setMultiplayerNeedsPlatform } from "../lib/multiplayerFlag";
@@ -264,7 +271,8 @@ export function GameCard({
   );
   const [axesExpanded, setAxesExpanded] = useState(false);
   const [localAxes, setLocalAxes] = useState<DrmAxes | null>(() => getLocalAxisResults(game.provider, game.id));
-  const [smokeTestRunning, setSmokeTestRunning] = useState(false);
+  const [auditRunning, setAuditRunning] = useState(false);
+  const [autoSubmit, setAutoSubmit] = useState(() => getAutoSubmitAuditResults());
   const [shareSignal, setShareSignal] = useState<{ votes: AxisVotes; key: number } | null>(null);
 
   useEffect(() => {
@@ -325,24 +333,44 @@ export function GameCard({
     };
   }, [game.provider, game.id]);
 
-  // The launch smoke test is real automation (it actually spawns the
-  // exe) — explicit, user-triggered only, never run on mount. Only
-  // offered where game.exe_path is a real filesystem path (GOG/Humble);
-  // Steam/Epic's exe_path is a protocol-launch id, not something
-  // std::process::Command can spawn — see localAxisTests.ts's doc
-  // comment.
-  const canRunSmokeTest =
-    (game.provider === "gog" || game.provider === "humble") && !!game.exe_path;
+  // The launch half of the audit is real automation (it actually
+  // spawns the exe) — explicit, user-triggered only, never run on
+  // mount. Only offered where game.exe_path is a real filesystem path
+  // (GOG/Humble); Steam/Epic's exe_path is a protocol-launch id, not
+  // something std::process::Command can spawn — see
+  // localAxisTests.ts's doc comment.
+  const canRunLaunchAudit = (game.provider === "gog" || game.provider === "humble") && !!game.exe_path;
 
-  async function runSmokeTest() {
-    if (!game.exe_path) return;
-    setSmokeTestRunning(true);
+  async function runAudit() {
+    setAuditRunning(true);
     try {
-      await runLaunchSmokeTest(game.provider, game.id, game.exe_path);
-      track("local_axis_smoke_test_run", { provider: game.provider });
-      setLocalAxes(getLocalAxisResults(game.provider, game.id));
+      const axes = await runFullAudit(game.provider, game.id, game.exe_path);
+      setLocalAxes(axes);
+      track("local_axis_audit_run", { provider: game.provider, ranLaunchAudit: canRunLaunchAudit });
+      if (autoSubmit) {
+        await submitAuditResult(axes);
+      }
     } finally {
-      setSmokeTestRunning(false);
+      setAuditRunning(false);
+    }
+  }
+
+  function toggleAutoSubmit() {
+    setAutoSubmit((prev) => {
+      const next = !prev;
+      setAutoSubmitAuditResults(next);
+      return next;
+    });
+  }
+
+  async function submitAuditResult(axes: DrmAxes) {
+    const votes = shareableVotes(axes);
+    if (Object.keys(votes).length === 0) return;
+    const ok = await submitDrmReport(game.provider, game.id, game.name, effectiveDrm.status, undefined, votes);
+    if (ok) {
+      track("community_report_submitted", { status: effectiveDrm.status, axesTested: Object.keys(votes).length, source: "auto_submit" });
+      const updated = await getCommunityConsensus(game.provider, game.id);
+      if (updated) setConsensus(updated);
     }
   }
 
@@ -440,7 +468,11 @@ export function GameCard({
           <div className="local-axis-pips-row">
             <span
               className="local-axis-pips-toggle"
-              title="Results from this machine's own automated checks — never shared automatically (decision 0025)"
+              title={
+                autoSubmit
+                  ? "Results from this machine's own automated checks — auto-submit is on, so these are shared after each audit run"
+                  : "Results from this machine's own automated checks — local only until you share them (see decision 0026)"
+              }
             >
               <span className="local-axis-pips-label">your machine:</span>
               {AXIS_CATEGORIES.map((category) => {
@@ -452,23 +484,32 @@ export function GameCard({
                 );
               })}
             </span>
-            {consensusLoaded && consensus !== null && (
+            {!autoSubmit && consensusLoaded && consensus !== null && (
               <button type="button" className="local-axis-share-button" onClick={shareLocalResult}>
                 Share this result
               </button>
             )}
           </div>
         )}
-        {canRunSmokeTest && (
-          <button
-            type="button"
-            className="local-axis-test-button"
-            onClick={runSmokeTest}
-            disabled={smokeTestRunning}
-            title="Launches this game and checks whether it stays running — a smoke test, not proof of offline play (see decision 0025)"
-          >
-            {smokeTestRunning ? "Testing…" : "Run automated test"}
-          </button>
+        {canRunLaunchAudit && (
+          <div className="local-audit-row">
+            <button
+              type="button"
+              className="local-axis-test-button"
+              onClick={runAudit}
+              disabled={auditRunning}
+              title="Runs every automatable freedom-test check for this game, including briefly launching it — a smoke test, not proof of offline play (see decision 0026)"
+            >
+              {auditRunning ? "Running audit…" : "Run audit"}
+            </button>
+            <label
+              className="local-audit-auto-submit"
+              title="Share results with the community automatically after each audit, instead of a separate Share step"
+            >
+              <input type="checkbox" checked={autoSubmit} onChange={toggleAutoSubmit} />
+              Auto-submit results
+            </label>
+          </div>
         )}
       </div>
       <div className="game-card-actions">

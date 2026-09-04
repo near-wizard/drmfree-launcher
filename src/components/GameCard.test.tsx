@@ -226,7 +226,7 @@ describe("GameCard local automated axis tests", () => {
     expect(container.querySelector(".local-axis-pips-row")).not.toBeInTheDocument();
   });
 
-  it("offers the automated launch test for a GOG game with a real exe path", async () => {
+  it("offers the audit for a GOG game with a real exe path", async () => {
     routeInvoke({});
     render(
       <GameCard
@@ -236,10 +236,10 @@ describe("GameCard local automated axis tests", () => {
         providerLabels={{}}
       />,
     );
-    expect(await screen.findByRole("button", { name: "Run automated test" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Run audit" })).toBeInTheDocument();
   });
 
-  it("does not offer the automated launch test for a Steam game (no real exe path)", async () => {
+  it("does not offer the audit for a Steam game (no real exe path)", async () => {
     routeInvoke({});
     render(
       <GameCard
@@ -250,11 +250,11 @@ describe("GameCard local automated axis tests", () => {
       />,
     );
     await waitFor(() => expect(invokeMock).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Run automated test" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run audit" })).not.toBeInTheDocument();
   });
 
-  it("running the automated test updates the your-machine pips row without touching the community backend", async () => {
-    routeInvoke({ run_launch_smoke_test: "pass" });
+  it("running the audit updates the your-machine pips row without touching the community backend", async () => {
+    routeInvoke({ run_launch_audit: { first_launch_offline: "pass", no_third_party_services: "pass" } });
     const user = userEvent.setup();
     const { container } = render(
       <GameCard
@@ -264,16 +264,63 @@ describe("GameCard local automated axis tests", () => {
         providerLabels={{}}
       />,
     );
-    await user.click(await screen.findByRole("button", { name: "Run automated test" }));
+    await user.click(await screen.findByRole("button", { name: "Run audit" }));
 
     await waitFor(() => {
-      expect(invokeMock).toHaveBeenCalledWith("run_launch_smoke_test", {
+      expect(invokeMock).toHaveBeenCalledWith("run_launch_audit", {
         exePath: "C:\\Games\\X\\X.exe",
         timeoutSecs: 8,
       });
     });
     await waitFor(() => {
       expect(container.querySelector(".local-axis-pips-row")).toBeInTheDocument();
+    });
+    expect(invokeMock).not.toHaveBeenCalledWith("submit_drm_report", expect.anything());
+  });
+
+  it("auto-submits the audit result when the auto-submit checkbox is checked", async () => {
+    routeInvoke({
+      run_launch_audit: { first_launch_offline: "pass", no_third_party_services: "pass" },
+      submit_drm_report: undefined,
+      get_community_consensus: { total: 1, counts: { "drm-free": 0, drm: 0, unknown: 1 }, recentNotes: [] },
+    });
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("checkbox", { name: "Auto-submit results" }));
+    await user.click(screen.getByRole("button", { name: "Run audit" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith(
+        "submit_drm_report",
+        expect.objectContaining({
+          axes: { first_launch_offline: "pass", no_third_party_services: "pass" },
+        }),
+      );
+    });
+  });
+
+  it("does not submit anything when auto-submit is left unchecked", async () => {
+    routeInvoke({ run_launch_audit: { first_launch_offline: "pass", no_third_party_services: "pass" } });
+    const user = userEvent.setup();
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await user.click(await screen.findByRole("button", { name: "Run audit" }));
+
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("run_launch_audit", expect.anything());
     });
     expect(invokeMock).not.toHaveBeenCalledWith("submit_drm_report", expect.anything());
   });

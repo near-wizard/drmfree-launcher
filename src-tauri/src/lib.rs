@@ -29,7 +29,7 @@ pub fn run() {
             community::submit_drm_report,
             community::get_community_consensus,
             axis_test::structural_axes,
-            axis_test::run_launch_smoke_test
+            axis_test::run_launch_audit
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

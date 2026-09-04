@@ -49,4 +49,11 @@ windows = { version = "0.58", features = [
     "Win32_Graphics_Gdi",
     "Win32_Foundation",
     "Win32_Storage_FileSystem",
+    # GetExtendedTcpTable (axis_test.rs's network-observation probe) —
+    # a read-only query of the system's TCP connection table, no
+    # elevation required (unlike the firewall-rule approach decision
+    # 0025 deferred). Win32_Networking_WinSock for the AF_INET constant
+    # the query needs.
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_Networking_WinSock",
 ] }
