@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { GameCard } from "./GameCard";
 import type { Game } from "../types/game";
 import { unknownAxes } from "../types/drmAxes";
+import { setPluginEnabled } from "../lib/plugins";
 
 const UNKNOWN_AXES = unknownAxes();
 
@@ -186,10 +187,91 @@ describe("GameCard axis pips", () => {
   });
 });
 
+describe("GameCard audit plugin gating", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    invokeMock.mockReset();
+  });
+
+  function routeInvoke(overrides: Record<string, unknown>) {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd in overrides) return Promise.resolve(overrides[cmd]);
+      return Promise.resolve(null);
+    });
+  }
+
+  it("shows no audit UI at all when the plugin is off (the default)", async () => {
+    routeInvoke({
+      structural_axes: { ...UNKNOWN_AXES, no_storefront_client: "pass", no_launcher: "pass" },
+    });
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await waitFor(() => expect(invokeMock).toHaveBeenCalled());
+    // Give the (never-fired, since the plugin is off) structural_axes
+    // call a moment it wouldn't need if it had actually run.
+    await new Promise((r) => setTimeout(r, 0));
+    expect(invokeMock).not.toHaveBeenCalledWith("structural_axes", expect.anything());
+    expect(screen.queryByRole("button", { name: "Run audit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Test copyable install" })).not.toBeInTheDocument();
+  });
+
+  it("shows audit UI once the plugin is toggled on, without a remount", async () => {
+    routeInvoke({
+      structural_axes: { ...UNKNOWN_AXES, no_storefront_client: "pass", no_launcher: "pass" },
+    });
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "Run audit" })).not.toBeInTheDocument();
+
+    setPluginEnabled("audit", true);
+
+    expect(await screen.findByRole("button", { name: "Run audit" })).toBeInTheDocument();
+  });
+
+  it("hides audit UI again once the plugin is toggled back off", async () => {
+    routeInvoke({
+      structural_axes: { ...UNKNOWN_AXES, no_storefront_client: "pass", no_launcher: "pass" },
+    });
+    setPluginEnabled("audit", true);
+    render(
+      <GameCard
+        game={makeGame({ provider: "gog", exe_path: "C:\\Games\\X\\X.exe", install_dir: "C:\\Games\\X" })}
+        onLaunch={() => {}}
+        launching={false}
+        providerLabels={{}}
+      />,
+    );
+    await screen.findByRole("button", { name: "Run audit" });
+
+    setPluginEnabled("audit", false);
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "Run audit" })).not.toBeInTheDocument();
+    });
+  });
+});
+
 describe("GameCard local automated axis tests", () => {
   beforeEach(() => {
     localStorage.clear();
     invokeMock.mockReset();
+    // The audit feature is an opt-in plugin (decision 0030), off by
+    // default — every test in this block is specifically about that
+    // feature's own behavior once enabled. Gating itself is covered
+    // separately above.
+    setPluginEnabled("audit", true);
   });
 
   function routeInvoke(overrides: Record<string, unknown>) {

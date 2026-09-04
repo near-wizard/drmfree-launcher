@@ -45,9 +45,10 @@ export function PluginsView() {
   return (
     <div className="plugins-view">
       <p className="header-subtitle">
-        Optional modules, off by default. Enabling one only unlocks its own window and its own
-        narrow set of commands — it never changes what the main app itself can do. See{" "}
-        <code>docs/decisions/0029</code> for the design.
+        Optional modules, off by default. Enabling a window plugin only unlocks its own window
+        and its own narrow set of commands; enabling a feature-flag plugin only reveals UI
+        that's already in the main window — neither changes what the app itself can do. See{" "}
+        <code>docs/decisions/0029</code> and <code>0030</code> for the design.
       </p>
       {error && <p className="error-banner">{error}</p>}
       {!loading && plugins.length === 0 && <p>No plugins registered yet.</p>}
@@ -57,6 +58,9 @@ export function PluginsView() {
             <div className="plugin-card-info">
               <h3>{p.name}</h3>
               <p>{p.description}</p>
+              {!p.has_window && (
+                <p className="plugin-inline-location">Appears inline on each game card in your Library.</p>
+              )}
             </div>
             <div className="plugin-card-actions">
               <label className="plugin-toggle">
@@ -67,9 +71,11 @@ export function PluginsView() {
                 />
                 Enabled
               </label>
-              <button disabled={!enabled[p.id]} onClick={() => onOpen(p.id)}>
-                Open
-              </button>
+              {p.has_window && (
+                <button disabled={!enabled[p.id]} onClick={() => onOpen(p.id)}>
+                  Open
+                </button>
+              )}
             </div>
           </li>
         ))}

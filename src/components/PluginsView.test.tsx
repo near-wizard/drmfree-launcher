@@ -6,7 +6,18 @@ import { PluginsView } from "./PluginsView";
 const invokeMock = vi.hoisted(() => vi.fn());
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 
-const modManager = { id: "mods", name: "Mod Manager", description: "Enable, disable, and reorder local mods." };
+const modManager = {
+  id: "mods",
+  name: "Mod Manager",
+  description: "Enable, disable, and reorder local mods.",
+  has_window: true,
+};
+const auditPlugin = {
+  id: "audit",
+  name: "Automated Freedom-Test Audit",
+  description: "Run local automated checks.",
+  has_window: false,
+};
 
 describe("PluginsView", () => {
   beforeEach(() => {
@@ -43,5 +54,33 @@ describe("PluginsView", () => {
     invokeMock.mockResolvedValueOnce([]);
     render(<PluginsView />);
     expect(await screen.findByText("No plugins registered yet.")).toBeInTheDocument();
+  });
+
+  it("renders no Open button for a feature-flag plugin, and explains where it appears instead", async () => {
+    invokeMock.mockResolvedValueOnce([auditPlugin]);
+    render(<PluginsView />);
+
+    expect(await screen.findByText("Automated Freedom-Test Audit")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open" })).not.toBeInTheDocument();
+    expect(screen.getByText("Appears inline on each game card in your Library.")).toBeInTheDocument();
+  });
+
+  it("still lets a feature-flag plugin be toggled on and off", async () => {
+    invokeMock.mockResolvedValueOnce([auditPlugin]);
+    const user = userEvent.setup();
+    render(<PluginsView />);
+
+    const checkbox = await screen.findByRole("checkbox", { name: /enabled/i });
+    expect(checkbox).not.toBeChecked();
+    await user.click(checkbox);
+    expect(checkbox).toBeChecked();
+  });
+
+  it("shows no inline-location note and no window-vs-flag confusion for a window plugin", async () => {
+    invokeMock.mockResolvedValueOnce([modManager]);
+    render(<PluginsView />);
+
+    await screen.findByText("Mod Manager");
+    expect(screen.queryByText("Appears inline on each game card in your Library.")).not.toBeInTheDocument();
   });
 });

@@ -16,6 +16,7 @@ import {
   shareableVotes,
 } from "../lib/localAxisTests";
 import { track } from "../lib/analytics";
+import { isPluginEnabled, onPluginToggled } from "../lib/plugins";
 import { MANUAL_PROVIDER, removeManualGame } from "../lib/manualGames";
 import { getMultiplayerNeedsPlatform, setMultiplayerNeedsPlatform } from "../lib/multiplayerFlag";
 import { PawIcon } from "./PawIcon";
@@ -276,6 +277,12 @@ export function GameCard({
   const [autoSubmit, setAutoSubmit] = useState(() => getAutoSubmitAuditResults());
   const [portabilityTestRunning, setPortabilityTestRunning] = useState(false);
   const [portabilityTestError, setPortabilityTestError] = useState<string | null>(null);
+  // The audit feature is a feature-flag plugin (decision 0030) — off
+  // by default, and every piece of its UI (this row, the pips, the
+  // buttons) plus the structural-axes mount effect below is gated on
+  // this. The underlying commands stay reachable regardless; only
+  // whether this card shows anything for them is toggled.
+  const [auditPluginEnabled, setAuditPluginEnabled] = useState(() => isPluginEnabled("audit"));
   const [shareSignal, setShareSignal] = useState<{ votes: AxisVotes; key: number } | null>(null);
 
   useEffect(() => {
@@ -320,12 +327,26 @@ export function GameCard({
     };
   }, [game.icon_source]);
 
+  // The audit feature is a feature-flag plugin — react live to it
+  // being toggled in the Plugins tab without needing a reload, since
+  // every tab in this app stays mounted simultaneously (App.tsx uses
+  // `hidden`, not conditional rendering) rather than remounting on
+  // switch.
+  useEffect(() => {
+    return onPluginToggled((id, enabled) => {
+      if (id === "audit") setAuditPluginEnabled(enabled);
+    });
+  }, []);
+
   // Structural axes are a free lookup, not a live test (decision 0025)
   // — safe to run for every card unconditionally, no button needed.
   // Skipped for manual entries, same reasoning as the consensus fetch
   // above: their id/provider carries no provider-level guarantee
   // either way, structural_axes would just return Unknown for them.
+  // Gated on the audit plugin (decision 0030) — the command itself
+  // stays reachable, only this card's own use of it is opt-in.
   useEffect(() => {
+    if (!auditPluginEnabled) return;
     if (game.provider === MANUAL_PROVIDER) return;
     let cancelled = false;
     runStructuralAxes(game.provider, game.id).then((axes) => {
@@ -334,7 +355,7 @@ export function GameCard({
     return () => {
       cancelled = true;
     };
-  }, [game.provider, game.id]);
+  }, [game.provider, game.id, auditPluginEnabled]);
 
   // The launch half of the audit is real automation (it actually
   // spawns the exe) — explicit, user-triggered only, never run on
@@ -494,66 +515,72 @@ export function GameCard({
             )}
           </div>
         )}
-        {localAxes && Object.values(localAxes).some((r) => r !== "unknown") && (
-          <div className="local-axis-pips-row">
-            <span
-              className="local-axis-pips-toggle"
-              title={
-                autoSubmit
-                  ? "Results from this machine's own automated checks — auto-submit is on, so these are shared after each audit run"
-                  : "Results from this machine's own automated checks — local only until you share them (see decision 0026)"
-              }
-            >
-              <span className="local-axis-pips-label">your machine:</span>
-              {AXIS_CATEGORIES.map((category) => {
-                const pip = categoryPipResult(localAxes, category.axes);
-                return (
-                  <span key={category.label} className={`axis-pip axis-pip-${pip}`} title={category.label}>
-                    {CATEGORY_PIP_SYMBOL[pip]}
-                  </span>
-                );
-              })}
-            </span>
-            {!autoSubmit && consensusLoaded && consensus !== null && (
-              <button type="button" className="local-axis-share-button" onClick={shareLocalResult}>
-                Share this result
-              </button>
+        {auditPluginEnabled && (
+          <>
+            {localAxes && Object.values(localAxes).some((r) => r !== "unknown") && (
+              <div className="local-axis-pips-row">
+                <span
+                  className="local-axis-pips-toggle"
+                  title={
+                    autoSubmit
+                      ? "Results from this machine's own automated checks — auto-submit is on, so these are shared after each audit run"
+                      : "Results from this machine's own automated checks — local only until you share them (see decision 0026)"
+                  }
+                >
+                  <span className="local-axis-pips-label">your machine:</span>
+                  {AXIS_CATEGORIES.map((category) => {
+                    const pip = categoryPipResult(localAxes, category.axes);
+                    return (
+                      <span key={category.label} className={`axis-pip axis-pip-${pip}`} title={category.label}>
+                        {CATEGORY_PIP_SYMBOL[pip]}
+                      </span>
+                    );
+                  })}
+                </span>
+                {!autoSubmit && consensusLoaded && consensus !== null && (
+                  <button type="button" className="local-axis-share-button" onClick={shareLocalResult}>
+                    Share this result
+                  </button>
+                )}
+              </div>
             )}
-          </div>
-        )}
-        {canRunLaunchAudit && (
-          <div className="local-audit-row">
-            <button
-              type="button"
-              className="local-axis-test-button"
-              onClick={runAudit}
-              disabled={auditRunning}
-              title="Runs every automatable freedom-test check for this game, including briefly launching it — a smoke test, not proof of offline play (see decision 0026)"
-            >
-              {auditRunning ? "Running audit…" : "Run audit"}
-            </button>
-            <label
-              className="local-audit-auto-submit"
-              title="Share results with the community automatically after each audit, instead of a separate Share step"
-            >
-              <input type="checkbox" checked={autoSubmit} onChange={toggleAutoSubmit} />
-              Auto-submit results
-            </label>
-          </div>
-        )}
-        {canRunPortabilityAudit && (
-          <div className="local-audit-row">
-            <button
-              type="button"
-              className="local-axis-test-button local-portability-test-button"
-              onClick={runPortabilityTest}
-              disabled={portabilityTestRunning}
-              title="Copies this install to a temp location and checks the copy still launches, then deletes the copy — may take a while and use extra disk space for large games (see decision 0031)"
-            >
-              {portabilityTestRunning ? "Copying and testing…" : "Test copyable install"}
-            </button>
-            {portabilityTestError && <span className="local-portability-test-error">{portabilityTestError}</span>}
-          </div>
+            {canRunLaunchAudit && (
+              <div className="local-audit-row">
+                <button
+                  type="button"
+                  className="local-axis-test-button"
+                  onClick={runAudit}
+                  disabled={auditRunning}
+                  title="Runs every automatable freedom-test check for this game, including briefly launching it — a smoke test, not proof of offline play (see decision 0026)"
+                >
+                  {auditRunning ? "Running audit…" : "Run audit"}
+                </button>
+                <label
+                  className="local-audit-auto-submit"
+                  title="Share results with the community automatically after each audit, instead of a separate Share step"
+                >
+                  <input type="checkbox" checked={autoSubmit} onChange={toggleAutoSubmit} />
+                  Auto-submit results
+                </label>
+              </div>
+            )}
+            {canRunPortabilityAudit && (
+              <div className="local-audit-row">
+                <button
+                  type="button"
+                  className="local-axis-test-button local-portability-test-button"
+                  onClick={runPortabilityTest}
+                  disabled={portabilityTestRunning}
+                  title="Copies this install to a temp location and checks the copy still launches, then deletes the copy — may take a while and use extra disk space for large games (see decision 0031)"
+                >
+                  {portabilityTestRunning ? "Copying and testing…" : "Test copyable install"}
+                </button>
+                {portabilityTestError && (
+                  <span className="local-portability-test-error">{portabilityTestError}</span>
+                )}
+              </div>
+            )}
+          </>
         )}
       </div>
       <div className="game-card-actions">

@@ -1,6 +1,6 @@
 # 0030 — Moving the automated audit behind the plugin model
 
-**Status:** planned — approach decided, no code changes yet.
+**Status:** implemented.
 
 ## The ask
 
@@ -86,23 +86,42 @@ and returns an error for a `FeatureFlag`-kind id (there's no window to
 open) — the frontend never calls it for one, since the toggle alone is
 the whole interaction.
 
-## What actually moves
+## What actually moved
 
-- `src-tauri/src/plugins.rs`: add the `audit` `PluginDef`
-  (`PluginKind::FeatureFlag`). No change to `axis_test.rs` or
-  `capabilities/default.json` — those commands are not gated by this
-  change, only their UI's visibility is.
-- `src/components/GameCard.tsx`: wrap the existing "your machine:" pips
-  row, the "Run audit"/"Auto-submit results" row, and the
-  `runStructuralAxes` mount-time effect in
-  `isPluginEnabled("audit") &&` (`src/lib/plugins.ts`, already built for
-  Mod Manager — no new frontend plumbing needed there). Off by default,
-  same as every plugin under 0029.
-- `src/components/PluginsView.tsx`: render an "Open" button only when
-  `has_window` is true; show the inline-location line otherwise.
-- No change to `localAxisTests.ts`, `axis_test.rs`, or any
-  `drmfree-community` submission path — none of that carries new risk
-  or new packaging, only its entry point's visibility changes.
+- `src-tauri/src/plugins.rs`: `PluginDef` gained a `kind: PluginKind`
+  field (`Window { window_label }` | `FeatureFlag`) replacing the old
+  bare `window_label`; the `audit` entry was added as
+  `PluginKind::FeatureFlag`. `list_plugins` gained `has_window: bool`,
+  derived from `kind`. `open_plugin_window` now returns an `Err` for a
+  `FeatureFlag`-kind id instead of assuming every registered plugin has
+  a window. No change to `axis_test.rs`, `portability_audit.rs` (added
+  after this decision was first written, for `copyable_install` —
+  folded into the same gate below), or `capabilities/default.json` —
+  those commands are not gated by this change, only their UI's
+  visibility is.
+- `src/lib/plugins.ts`: `PluginInfo` gained `has_window`. Also gained
+  `onPluginToggled`/a `CustomEvent` dispatch from `setPluginEnabled` —
+  not anticipated when this decision was first written, but turned out
+  to be necessary: every tab in this app stays mounted simultaneously
+  (`App.tsx` uses `hidden`, not conditional rendering, to switch tabs),
+  so an already-mounted `GameCard` in the Library tab wouldn't
+  otherwise notice the Plugins tab toggling `audit` on/off without a
+  reload. The browser's native `storage` event doesn't help here either
+  — it only fires in *other* documents/windows, never the one that made
+  the write.
+- `src/components/GameCard.tsx`: the "your machine:" pips row, the "Run
+  audit"/"Auto-submit results" row, the "Test copyable install" row,
+  and the `runStructuralAxes` mount-time effect are all wrapped in
+  `auditPluginEnabled &&` — a piece of local state seeded from
+  `isPluginEnabled("audit")` and kept live via `onPluginToggled`. Off
+  by default, same as every plugin under 0029.
+- `src/components/PluginsView.tsx`: renders an "Open" button only when
+  `has_window` is true; shows "Appears inline on each game card in your
+  Library." otherwise.
+- No change to `localAxisTests.ts`, `axis_test.rs`,
+  `portability_audit.rs`, or any `drmfree-community` submission path —
+  none of that carries new risk or new packaging, only the entry
+  point's visibility changes.
 
 ## What this decision deliberately does not do
 
@@ -131,9 +150,17 @@ several places.
 
 ## What this decision does NOT resolve
 
-- The actual code change (this is a plan, not a diff) — implementation
-  is a follow-up pass.
 - Whether any *other* existing feature should retroactively become a
   feature-flag plugin (e.g. the Freedom Dashboard, wishlist
   cross-reference) — out of scope; this decision is audit-specific,
   triggered by a direct ask about audit only.
+
+## Verification
+
+125 Rust tests (4 in `plugins.rs`, including one asserting `audit`'s
+`has_window` is `false` and one confirming `every_window_plugin_def`
+still holds for `mods`), 232 frontend tests (new coverage: audit UI
+absent by default, appears live on toggle-on with no remount required,
+disappears again on toggle-off; `PluginsView` renders no Open button
+and the inline-location line for a feature-flag plugin), clippy, tsc,
+lint, and build all clean.
